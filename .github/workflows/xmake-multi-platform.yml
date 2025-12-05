@@ -66,7 +66,34 @@ jobs:
           sudo ./llvm.sh ${{ env.LLVM_VER }}
           sudo apt-get install -y libc++-${{ env.LLVM_VER }}-dev libc++abi-${{ env.LLVM_VER }}-dev clang-tools-${{ env.LLVM_VER }} libunwind-${{ env.LLVM_VER }}-dev
           echo "/usr/lib/llvm-${{ env.LLVM_VER }}/bin" >> $GITHUB_PATH
-            
+
+      - name: Diagnose Environment
+        if: matrix.os == 'ubuntu-latest' && matrix.toolchain == 'clang'
+        shell: bash
+        run: |
+          echo "================ CHECKING CLANG VERSION ================"
+          # 检查当前生效的 clang 是哪个
+          which clang
+          clang --version
+          
+          echo "================ CHECKING LIBC++ PATHS ================"
+          # 关键：询问 Clang 它默认去哪里找头文件
+          # 我们显式加上 -stdlib=libc++ 看看它能否找到路径
+          echo | clang -v -x c++ -stdlib=libc++ -E -
+          
+          echo "================ CHECKING INSTALLED FILES ================"
+          # 检查 LLVM 21 目录下实际有哪些文件
+          # Xmake 寻找 modules 通常需要特定的 .cppm 或 modulemap 文件
+          echo "--- Listing LLVM Includes ---"
+          ls -F /usr/lib/llvm-${{ env.LLVM_VER }}/include/c++/v1/ || echo "Dir not found"
+          
+          echo "--- Searching for Module Maps/Sources ---"
+          # 查找可能存在的模块定义文件
+          find /usr/lib/llvm-${{ env.LLVM_VER }} -name "*.cppm"
+          find /usr/lib/llvm-${{ env.LLVM_VER }} -name "module.modulemap"
+          
+          echo "================ CHECKING PACKAGES ================"
+          dpkg -l | grep -E "libc\+\+|clang|llvm"
 
       # 3. 配置并构建
       # 参数说明:
@@ -90,7 +117,7 @@ jobs:
           
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]]; then
              clang --version
-             EXTRA_FLAGS="--sdk=/usr/lib/llvm-${{ env.LLVM_VER }}/bin --cxflags='-stdlib=libc++' --ldflags='-stdlib=libc++'"
+             EXTRA_FLAGS="--sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags='-stdlib=libc++' --ldflags='-stdlib=libc++'"
           else
              EXTRA_FLAGS=""
           fi
