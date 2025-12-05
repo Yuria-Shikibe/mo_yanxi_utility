@@ -33,12 +33,8 @@ import std;
 
 namespace mo_yanxi{
 	export
-	struct bad_hash_map_key : std::exception{
-		[[nodiscard]] bad_hash_map_key() = default;
-
-		[[nodiscard]] const char* what() const override{
-			return "emplace with empty key";
-		}
+	struct bad_hash_map_key : std::runtime_error{
+		using std::runtime_error::runtime_error;
 	};
 	//TODO using uninitialized memory and placement instead of assignment
 	//TODO provide bucket impl selection?
