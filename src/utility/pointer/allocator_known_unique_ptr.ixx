@@ -204,7 +204,7 @@ public:
 	using deleter_type = void(*)(T*, allocator_type&) noexcept;
 
 private:
-	[[no_unique_address]] allocator_type alloc_;
+	ADAPTED_NO_UNIQUE_ADDRESS allocator_type alloc_;
 	pointer ptr_ = nullptr;
 	deleter_type deleter_ = nullptr; // 存储类型擦除后的删除函数
 

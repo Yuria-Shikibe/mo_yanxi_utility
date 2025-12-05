@@ -455,8 +455,8 @@ namespace mo_yanxi::events{
 		using funcTpe = Fn;
 	};
 
-	template <typename Fn>
-	struct unwrap_fn<std::move_only_function<Fn>>{
+	template <typename Fn, typename ...Args>
+	struct unwrap_fn<std::move_only_function<Fn, Args...>>{
 		using funcTpe = Fn;
 	};
 
@@ -473,8 +473,6 @@ namespace mo_yanxi::events{
 	export
 	template <typename Wrap>
 	using unwrap_fn_t = typename unwrap_fn<Wrap>::funcTpe;
-
-	using A = unwrap_fn_t<std::move_only_function<void() const>>;
 
 	template <typename FnWrap>
 	auto getFnTy(){
