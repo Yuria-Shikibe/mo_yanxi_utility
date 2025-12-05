@@ -30,6 +30,7 @@ jobs:
             toolchain: gcc
           - os: ubuntu-latest
             toolchain: clang
+        mode: [debug, release]
 
     steps:
       - uses: actions/checkout@v4
@@ -62,27 +63,25 @@ jobs:
       # -b: 构建
       # -m release: 编译模式 Release
       # --toolchain: 传入矩阵中的编译器 (msvc/gcc/clang)
-      - name: Build Debug
+      - name: Build ${{ matrix.mode }}
         shell: bash
         run: |
-          if [ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]; then
-             xmake f -m debug --toolchain=clang --sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags="-stdlib=libc++" --ldflags="-stdlib=libc++" -y
+          # 定义通用参数变量
+          XMAKE_FLAGS="-m ${{ matrix.mode }} --toolchain=${{ matrix.toolchain }} -y"
+          
+          # 判断是否需要特殊参数 (注意这里修复了 if 语法)
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]]; then
+             EXTRA_FLAGS="--sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags='-stdlib=libc++' --ldflags='-stdlib=libc++'"
           else
-             xmake f -m debug --toolchain=${{ matrix.toolchain }}
+             EXTRA_FLAGS=""
           fi
           
+          # 执行配置和构建
+          # 提示: xmake 支持配置和构建合并在一条命令，或者分两步
+          echo "Configuring with: $XMAKE_FLAGS $EXTRA_FLAGS"
+          xmake f $XMAKE_FLAGS $EXTRA_FLAGS
           
-          xmake -b -y ${{ env.TARGET_NAME }}   
-
-      - name: Build Release
-        shell: bash
-        run: |
-          if [ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]; then
-             xmake f -m release --toolchain=clang --sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags="-stdlib=libc++" --ldflags="-stdlib=libc++" -y
-          else
-             xmake f -m release --toolchain=${{ matrix.toolchain }}
-          fi
-          xmake -b -y ${{ env.TARGET_NAME }}   
+          xmake -b -y ${{ env.TARGET_NAME }}
 
       # 4. 运行测试
       - name: Test
