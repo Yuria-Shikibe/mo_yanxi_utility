@@ -62,14 +62,12 @@ jobs:
       # --toolchain: 传入矩阵中的编译器 (msvc/gcc/clang)
       - name: Build Debug
         run: |
-          xmake f -m debug
-          xmake f --toolchain=${{ matrix.toolchain }}
+          xmake f -m debug --toolchain=${{ matrix.toolchain }}
           xmake -b -y ${{ env.TARGET_NAME }}   
 
       - name: Build Release
         run: |
-          xmake f -m release
-          xmake f --toolchain=${{ matrix.toolchain }}
+          xmake f -m release --toolchain=${{ matrix.toolchain }}
           xmake -b -y ${{ env.TARGET_NAME }}   
 
       # 4. 运行测试
