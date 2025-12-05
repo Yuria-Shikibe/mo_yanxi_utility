@@ -132,7 +132,7 @@ namespace mo_yanxi::ranges{
 		}
 
 	private:
-		template <class SelfTy, class Ty, size_t... Idx>
+		template <class SelfTy, class Ty, std::size_t... Idx>
 		static constexpr decltype(auto) call(SelfTy&& self, Ty&& arg, std::index_sequence<Idx...>) noexcept(
 			noexcept(Func{}(std::forward<Ty>(arg), std::get<Idx>(std::forward<SelfTy>(self).captures)...))){
 			return Func{}(std::forward<Ty>(arg), std::get<Idx>(std::forward<SelfTy>(self).captures)...);

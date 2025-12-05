@@ -99,7 +99,7 @@ jobs:
           echo "Configuring with: $XMAKE_FLAGS $EXTRA_FLAGS"
           xmake f -c $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS -y -cv
           
-          xmake -vD -y ${{ env.TARGET_NAME }}
+          xmake -b -y ${{ env.TARGET_NAME }}
 
       # 4. 运行测试
       - name: Test
