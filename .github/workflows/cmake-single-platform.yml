@@ -19,12 +19,10 @@ jobs:
       matrix:
         os: [
           windows-latest,
-#          ubuntu-latest
+          ubuntu-latest
         ]
         toolchain: [ msvc, clang, gcc ]
         mode: [ debug, release ]
-        # 使用 include 显式定义合法的 OS 与 Toolchain 组合
-        # 这样自然就排除了 (Windows + gcc) 和 (Linux + msvc)
         include:
           - os: windows-latest
             toolchain: msvc
@@ -34,13 +32,13 @@ jobs:
           # 2. Linux: 使用 GCC/Clang
 #          - os: ubuntu-latest
 #            toolchain: gcc
-#          - os: ubuntu-latest
-#            toolchain: clang
+          - os: ubuntu-latest
+            toolchain: clang
         exclude:
           - os: windows-latest
             toolchain: gcc
-#          - os: ubuntu-latest
-#            toolchain: msvc
+          - os: ubuntu-latest
+            toolchain: msvc
 
 
     steps:
@@ -78,7 +76,7 @@ jobs:
         shell: bash
         run: |
           # 定义通用参数变量
-          XMAKE_FLAGS="-m ${{ matrix.mode }} --toolchain=${{ matrix.toolchain }} -y"
+          XMAKE_FLAGS="-m ${{ matrix.mode }} --toolchain=${{ matrix.toolchain }}"
           EXTRA_FLAGS=""
           PLAT_FLAGS=""
           
@@ -98,7 +96,7 @@ jobs:
           # 执行配置和构建
           # 提示: xmake 支持配置和构建合并在一条命令，或者分两步
           echo "Configuring with: $XMAKE_FLAGS $EXTRA_FLAGS"
-          xmake f $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS
+          xmake f $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS -y
           
           xmake -b -y ${{ env.TARGET_NAME }}
 
