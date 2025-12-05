@@ -63,6 +63,7 @@ jobs:
       # -m release: 编译模式 Release
       # --toolchain: 传入矩阵中的编译器 (msvc/gcc/clang)
       - name: Build Debug
+        shell: bash
         run: |
           if [ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]; then
              xmake f -m debug --toolchain=clang --sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags="-stdlib=libc++" --ldflags="-stdlib=libc++" -y
@@ -74,6 +75,7 @@ jobs:
           xmake -b -y ${{ env.TARGET_NAME }}   
 
       - name: Build Release
+        shell: bash
         run: |
           if [ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]; then
              xmake f -m release --toolchain=clang --sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags="-stdlib=libc++" --ldflags="-stdlib=libc++" -y
