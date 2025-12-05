@@ -1,6 +1,6 @@
 module;
 
-#include "../../../../include/mo_yanxi/adapted_attributes.hpp"
+#include "mo_yanxi/adapted_attributes.hpp"
 #define ATTR FORCE_INLINE PURE_FN
 
 export module mo_yanxi.math.vector2;

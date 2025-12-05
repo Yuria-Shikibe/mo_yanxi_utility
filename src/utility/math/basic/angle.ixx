@@ -1,7 +1,7 @@
 module;
 
 #include <cassert>
-#include "../../../../include/mo_yanxi/adapted_attributes.hpp"
+#include "mo_yanxi/adapted_attributes.hpp"
 #define MATH_ATTR [[nodiscard]] FORCE_INLINE
 #define ANGLE_PURE PURE_FN
 

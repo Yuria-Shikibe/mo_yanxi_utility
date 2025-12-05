@@ -1,6 +1,6 @@
 module;
 
-#include "../../../include/mo_yanxi/adapted_attributes.hpp"
+#include "mo_yanxi/adapted_attributes.hpp"
 #include <cassert>
 
 export module mo_yanxi.math.constrained_system;

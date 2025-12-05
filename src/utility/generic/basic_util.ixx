@@ -1,7 +1,7 @@
 ﻿module;
 
 #include <cassert>
-#include "../../../include/mo_yanxi/adapted_attributes.hpp"
+#include "mo_yanxi/adapted_attributes.hpp"
 
 export module mo_yanxi.utility;
 

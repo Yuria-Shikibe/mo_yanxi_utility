@@ -1,6 +1,6 @@
 module;
 
-#include "../../../../include/mo_yanxi/adapted_attributes.hpp"
+#include "mo_yanxi/adapted_attributes.hpp"
 #ifdef __AVX2__
 #define ENABLE_SIMD
 #include <immintrin.h>

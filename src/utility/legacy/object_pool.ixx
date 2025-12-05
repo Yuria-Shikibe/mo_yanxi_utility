@@ -1,8 +1,6 @@
 ﻿module;
 
-#include <vcruntime_typeinfo.h>
-
-#include "../../../include/mo_yanxi/adapted_attributes.hpp"
+#include "mo_yanxi/adapted_attributes.hpp"
 
 export module mo_yanxi.object_pool;
 

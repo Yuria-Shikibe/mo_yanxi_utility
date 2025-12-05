@@ -1,6 +1,6 @@
 module;
 
-#include "../../../include/mo_yanxi/assume.hpp"
+#include "mo_yanxi/assume.hpp"
 /*
  * C++ implementation of timsort
  *

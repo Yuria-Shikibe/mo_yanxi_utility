@@ -1,6 +1,6 @@
 module;
 
-#include "../../../../include/mo_yanxi/adapted_attributes.hpp"
+#include "mo_yanxi/adapted_attributes.hpp"
 #include <cassert>
 
 #define MATH_ATTR CONST_FN FORCE_INLINE inline
