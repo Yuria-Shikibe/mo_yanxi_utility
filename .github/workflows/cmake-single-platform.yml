@@ -2,6 +2,7 @@ name: Xmake Build
 
 env:
   TARGET_NAME: mo_yanxi.utility
+  LLVM_VER: 23
 
 on:
   push:
@@ -46,13 +47,14 @@ jobs:
           xmake-version: latest
           actions-cache-folder: '.xmake-cache'
 
-      # 2. (可选) 确保 Linux 编译器环境准备就绪
-      # ubuntu-latest 通常已预装较新的 gcc/clang，xmake 会自动找到它们。
-      - name: Prepare Linux Env
-        if: runner.os == 'Linux'
+
+      - name: Install LLVM  (Linux Clang only)
+        if: matrix.os == 'ubuntu-latest' && matrix.toolchain == 'clang'
         run: |
-          sudo apt-get update
-          # 如果需要特定版本，可以在这里 install，例如 sudo apt-get install -y clang-15
+          wget https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh ${{ env.LLVM_VER }}
+          sudo apt-get install -y libc++-${{ env.LLVM_VER }}-dev libc++abi-${{ env.LLVM_VER }}-dev clang-tools-${{ env.LLVM_VER }}
 
       # 3. 配置并构建
       # 参数说明:
@@ -62,12 +64,22 @@ jobs:
       # --toolchain: 传入矩阵中的编译器 (msvc/gcc/clang)
       - name: Build Debug
         run: |
-          xmake f -m debug --toolchain=${{ matrix.toolchain }}
+          if [ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]; then
+             xmake f -m debug --toolchain=clang --sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags="-stdlib=libc++" --ldflags="-stdlib=libc++" -y
+          else
+             xmake f -m debug --toolchain=${{ matrix.toolchain }}
+          fi
+          
+          
           xmake -b -y ${{ env.TARGET_NAME }}   
 
       - name: Build Release
         run: |
-          xmake f -m release --toolchain=${{ matrix.toolchain }}
+          if [ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]; then
+             xmake f -m release --toolchain=clang --sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags="-stdlib=libc++" --ldflags="-stdlib=libc++" -y
+          else
+             xmake f -m release --toolchain=${{ matrix.toolchain }}
+          fi
           xmake -b -y ${{ env.TARGET_NAME }}   
 
       # 4. 运行测试
