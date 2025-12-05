@@ -11,13 +11,13 @@ end
 
 includes("config.lua");
 
-mo_yanxi_utility_import_default("mo_yanxi-utility")
-target("mo_yanxi-utility")
+mo_yanxi_utility_import_default("mo_yanxi.utility")
+target("mo_yanxi.utility")
     add_vectorexts("avx", "avx2")
 target_end()
 
 
-target("utility_test")
+target("mo_yanxi.utility.test")
     set_kind("binary")
     set_extension(".exe")
     set_languages("c++latest")
@@ -27,8 +27,8 @@ target("utility_test")
     set_warnings("pedantic")
     add_vectorexts("avx", "avx2")
 
-    add_files("main.cpp")
-    add_deps("mo_yanxi-utility")
+    add_files("test/**.cpp")
+    add_deps("mo_yanxi.utility")
 target_end()
 
 
