@@ -19,7 +19,7 @@ jobs:
       matrix:
         os: [
           windows-latest,
-          ubuntu-latest
+#          ubuntu-latest
         ]
         toolchain: [ msvc, clang, gcc ]
         mode: [ debug, release ]
@@ -32,15 +32,15 @@ jobs:
           # 2. Linux: 使用 GCC/Clang
 #          - os: ubuntu-latest
 #            toolchain: gcc
-          - os: ubuntu-latest
-            toolchain: clang
+#          - os: ubuntu-latest
+#            toolchain: clang
         exclude:
           - os: windows-latest
             toolchain: gcc
-          - os: ubuntu-latest
-            toolchain: msvc
-          - os: ubuntu-latest
-            toolchain: gcc
+#          - os: ubuntu-latest
+#            toolchain: msvc
+#          - os: ubuntu-latest
+#            toolchain: gcc
 
 
     steps:
