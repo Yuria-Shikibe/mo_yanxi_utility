@@ -34,6 +34,8 @@ import std;
 namespace mo_yanxi{
 	export
 	struct bad_hash_map_key : std::runtime_error{
+		[[nodiscard]] bad_hash_map_key() : std::runtime_error{"bad_hash_map_key"} {}
+
 		using std::runtime_error::runtime_error;
 	};
 	//TODO using uninitialized memory and placement instead of assignment
