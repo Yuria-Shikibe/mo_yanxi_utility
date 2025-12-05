@@ -2,7 +2,7 @@ name: Xmake Build
 
 env:
   TARGET_NAME: mo_yanxi.utility
-  LLVM_VER: 23
+  LLVM_VER: 21
 
 on:
   push:
