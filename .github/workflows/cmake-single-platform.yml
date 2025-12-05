@@ -19,20 +19,25 @@ jobs:
         # 使用 include 显式定义合法的 OS 与 Toolchain 组合
         # 这样自然就排除了 (Windows + gcc) 和 (Linux + msvc)
         include:
-          # 1. Windows: 仅使用 MSVC (Visual Studio)
           - os: windows-latest
             toolchain: msvc
+          - os: windows-latest
+            toolchain: clang
 
-          # 2. Linux: 使用 GCC
+          # 2. Linux: 使用 GCC/Clang
           - os: ubuntu-latest
             toolchain: gcc
-
-          # 3. Linux: 使用 Clang
           - os: ubuntu-latest
             toolchain: clang
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install Libc++ for Clang Modules
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libc++-dev libc++abi-dev
 
       # 1. 设置 xmake 环境 (使用最新版)
       - name: Setup xmake

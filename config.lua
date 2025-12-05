@@ -1,4 +1,25 @@
 
+rule("mo_yanxi.settings")
+on_load(function (target)
+    -- 设置 C++ 标准
+    target:set("languages", "c++latest")
+    target:set("policy", "build.c++.modules", true)
+
+    -- 警告与优化
+    target:set("warnings", "all", "pedantic")
+    target:add("vectorexts", "avx", "avx2")
+
+    -- 自动根据模式处理 Runtime (MD/MDd)
+    if target:is_mode("debug") then
+        target:set("runtimes", "MDd")
+        target:add("defines", "MO_YANXI_UTILITY_ENABLE_CHECK=1")
+    else
+        target:set("runtimes", "MD")
+        target:add("defines", "MO_YANXI_UTILITY_ENABLE_CHECK=0")
+    end
+end)
+rule_end()
+
 function mo_yanxi_utility_add_comp_to(target_name, component_names)
     if target_name == nil then
         print("MoYanxi: Invalid Target: ", target_name)
@@ -21,10 +42,6 @@ function mo_yanxi_utility_add_comp_to(target_name, component_names)
 
         if(component_names == nil or #component_names == 0) then
             add_files(path.join(include_root, "**.ixx"), {public = true})
-            on_load(function(t)
-                print("MoYanxi: All Utility Component Added")
-            end)
-
             return
         end
 
@@ -34,14 +51,6 @@ function mo_yanxi_utility_add_comp_to(target_name, component_names)
             local dir = path.join(include_root, name);
             if(os.isdir(dir)) then
                 add_files(path.join(dir, "**.ixx"), {public = true})
-                on_load(function(t)
-                    print("MoYanxi: Utility Component Added: ", name)
-                end)
-            else
-                on_load(function(t)
-                    print("MoYanxi: Invalid Component: ", name)
-                end)
-
             end
         end
     target_end()
