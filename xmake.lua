@@ -3,10 +3,14 @@ set_arch("x64")
 set_encodings("utf-8")
 set_project("mo_yanxi_utility")
 
-if is_mode("debug") then
-    set_runtimes("MDd")
+if is_plat("windows") then
+    if is_mode("debug") then
+        set_runtimes("MDd")
+    else
+        set_runtimes("MD")
+    end
 else
-    set_runtimes("MD")
+    set_runtimes("c++_shared")
 end
 
 includes("config.lua");

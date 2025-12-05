@@ -55,7 +55,7 @@ jobs:
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
-          actions-cache-folder: '.xmake-cache'
+#          actions-cache-folder: '.xmake-cache'
 
 
       - name: Install LLVM  (Linux Clang only)
@@ -67,34 +67,6 @@ jobs:
           sudo apt-get install -y libc++-${{ env.LLVM_VER }}-dev libc++abi-${{ env.LLVM_VER }}-dev clang-tools-${{ env.LLVM_VER }} libunwind-${{ env.LLVM_VER }}-dev
           echo "/usr/lib/llvm-${{ env.LLVM_VER }}/bin" >> $GITHUB_PATH
 
-      - name: Diagnose Environment
-        if: matrix.os == 'ubuntu-latest' && matrix.toolchain == 'clang'
-        shell: bash
-        run: |
-          echo "================ CHECKING CLANG VERSION ================"
-          # 检查当前生效的 clang 是哪个
-          which clang
-          clang --version
-          
-          echo "================ CHECKING LIBC++ PATHS ================"
-          # 关键：询问 Clang 它默认去哪里找头文件
-          # 我们显式加上 -stdlib=libc++ 看看它能否找到路径
-          echo | clang -v -x c++ -stdlib=libc++ -E -
-          
-          echo "================ CHECKING INSTALLED FILES ================"
-          # 检查 LLVM 21 目录下实际有哪些文件
-          # Xmake 寻找 modules 通常需要特定的 .cppm 或 modulemap 文件
-          echo "--- Listing LLVM Includes ---"
-          ls -F /usr/lib/llvm-${{ env.LLVM_VER }}/include/c++/v1/ || echo "Dir not found"
-          
-          echo "--- Searching for Module Maps/Sources ---"
-          # 查找可能存在的模块定义文件
-          find /usr/lib/llvm-${{ env.LLVM_VER }} -name "*.cppm"
-          find /usr/lib/llvm-${{ env.LLVM_VER }} -name "module.modulemap"
-          
-          echo "================ CHECKING PACKAGES ================"
-          dpkg -l | grep -E "libc\+\+|clang|llvm"
-
       # 3. 配置并构建
       # 参数说明:
       # -y: 自动确认
@@ -104,29 +76,6 @@ jobs:
       - name: Build ${{ matrix.mode }}
         shell: bash
         run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]]; then
-             echo "Applying fix for Debian/Ubuntu LLVM layout..."
-          
-             # 1. 强制设置编译器环境变量 (防止调用系统自带的旧 Clang)
-             export CC="/usr/lib/llvm-${{ env.LLVM_VER }}/bin/clang"
-             export CXX="/usr/lib/llvm-${{ env.LLVM_VER }}/bin/clang++"
-             export PATH="/usr/lib/llvm-${{ env.LLVM_VER }}/bin:$PATH"
-          
-             # 2. [关键修复] 将 std.cppm 从 share 目录复制到 include 目录
-             # Xmake 会在 include 目录寻找模块定义，Ubuntu 却把它们放在了 share 里
-             SOURCE_DIR="/usr/lib/llvm-${{ env.LLVM_VER }}/share/libc++/v1"
-             TARGET_DIR="/usr/lib/llvm-${{ env.LLVM_VER }}/include/c++"
-          
-             if [ -d "$SOURCE_DIR" ]; then
-                 sudo cp "$SOURCE_DIR/std.cppm" "$TARGET_DIR/"
-                 sudo cp "$SOURCE_DIR/std.compat.cppm" "$TARGET_DIR/"
-                 echo "Successfully copied .cppm files to include dir."
-             else
-                 echo "Error: Source directory for modules not found!"
-                 exit 1
-             fi
-          fi
-          
           # 定义通用参数变量
           XMAKE_FLAGS="-m ${{ matrix.mode }} --toolchain=${{ matrix.toolchain }}"
           EXTRA_FLAGS=""
@@ -150,7 +99,7 @@ jobs:
           echo "Configuring with: $XMAKE_FLAGS $EXTRA_FLAGS"
           xmake f $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS -y
           
-          xmake -b -y ${{ env.TARGET_NAME }}
+          xmake -cvD -y ${{ env.TARGET_NAME }}
 
       # 4. 运行测试
       - name: Test
