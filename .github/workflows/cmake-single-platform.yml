@@ -33,6 +33,11 @@ jobs:
             toolchain: gcc
           - os: ubuntu-latest
             toolchain: clang
+        exclude:
+          - os: windows-latest
+            toolchain: gcc
+          - os: ubuntu-latest
+            toolchain: msvc
 
 
     steps:
