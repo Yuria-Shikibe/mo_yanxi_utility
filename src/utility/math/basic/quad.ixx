@@ -132,6 +132,7 @@ namespace mo_yanxi::math{
 		constexpr friend bool operator==(const quad& lhs, const quad& rhs) noexcept = default;
 
 		FORCE_INLINE constexpr void move(vec_t::const_pass_t vec) noexcept{
+#ifdef ENABLE_SIMD
 			if constexpr (std::same_as<float, value_type>){
 				if (!std::is_constant_evaluated()){
 					/* 创建重复的vec.x/vec.y模式 */
@@ -153,7 +154,7 @@ namespace mo_yanxi::math{
 					return;
 				}
 			}
-
+#endif
 
 			v0 += vec;
 			v1 += vec;
