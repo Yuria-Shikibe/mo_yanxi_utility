@@ -115,7 +115,7 @@ jobs:
              # 2. [关键修复] 将 std.cppm 从 share 目录复制到 include 目录
              # Xmake 会在 include 目录寻找模块定义，Ubuntu 却把它们放在了 share 里
              SOURCE_DIR="/usr/lib/llvm-${{ env.LLVM_VER }}/share/libc++/v1"
-             TARGET_DIR="/usr/lib/llvm-${{ env.LLVM_VER }}/include/c++/v1"
+             TARGET_DIR="/usr/lib/llvm-${{ env.LLVM_VER }}/include/c++"
           
              if [ -d "$SOURCE_DIR" ]; then
                  sudo cp "$SOURCE_DIR/std.cppm" "$TARGET_DIR/"
