@@ -77,7 +77,7 @@ jobs:
           # 定义通用参数变量
           XMAKE_FLAGS="-m ${{ matrix.mode }} --toolchain=${{ matrix.toolchain }} -y"
           
-          if [[ "${{ matrix.os }}" == "ubuntu-latest]]; then
+          if [ "${{ matrix.os }}" == "ubuntu-latest ]; then
              PLAT_FLAGS="-p linux"
           else
              PLAT_FLAGS="-p windows"
