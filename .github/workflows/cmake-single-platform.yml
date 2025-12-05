@@ -1,6 +1,7 @@
-# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
-name: CMake on a single platform
+name: Xmake Build
+
+env:
+  TARGET_NAME: mo_yanxi.utility
 
 on:
   push:
@@ -8,32 +9,58 @@ on:
   pull_request:
     branches: [ "master" ]
 
-env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
-  BUILD_TYPE: Release
-
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 使用 include 显式定义合法的 OS 与 Toolchain 组合
+        # 这样自然就排除了 (Windows + gcc) 和 (Linux + msvc)
+        include:
+          # 1. Windows: 仅使用 MSVC (Visual Studio)
+          - os: windows-latest
+            toolchain: msvc
+
+          # 2. Linux: 使用 GCC
+          - os: ubuntu-latest
+            toolchain: gcc
+
+          # 3. Linux: 使用 Clang
+          - os: ubuntu-latest
+            toolchain: clang
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+      # 1. 设置 xmake 环境 (使用最新版)
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+          actions-cache-folder: '.xmake-cache'
 
-    - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+      # 2. (可选) 确保 Linux 编译器环境准备就绪
+      # ubuntu-latest 通常已预装较新的 gcc/clang，xmake 会自动找到它们。
+      - name: Prepare Linux Env
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # 如果需要特定版本，可以在这里 install，例如 sudo apt-get install -y clang-15
 
-    - name: Test
-      working-directory: ${{github.workspace}}/build
-      # Execute tests defined by the CMake configuration.
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest -C ${{env.BUILD_TYPE}}
+      # 3. 配置并构建
+      # 参数说明:
+      # -y: 自动确认
+      # -b: 构建
+      # -m release: 编译模式 Release
+      # --toolchain: 传入矩阵中的编译器 (msvc/gcc/clang)
+      - name: Build Debug
+        run: xmake -b -m debug ${{ env.TARGET_NAME }}  --toolchain=${{ matrix.toolchain }} -y
 
+      - name: Build Release
+        run: xmake -b -m release ${{ env.TARGET_NAME }}  --toolchain=${{ matrix.toolchain }} -y
+
+      # 4. 运行测试
+      - name: Test
+        run: xmake test
