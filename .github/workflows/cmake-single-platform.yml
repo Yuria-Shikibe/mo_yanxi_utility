@@ -57,13 +57,13 @@ jobs:
       # --toolchain: 传入矩阵中的编译器 (msvc/gcc/clang)
       - name: Build Debug
         run: |
-          xmake -m debug
+          xmake f -m debug
           xmake --toolchain=${{ matrix.toolchain }}
           xmake -b -y ${{ env.TARGET_NAME }}   
 
       - name: Build Release
         run: |
-          xmake -m release
+          xmake f -m release
           xmake --toolchain=${{ matrix.toolchain }}
           xmake -b -y ${{ env.TARGET_NAME }}   
 
