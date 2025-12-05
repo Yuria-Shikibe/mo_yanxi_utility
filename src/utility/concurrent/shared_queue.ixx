@@ -10,7 +10,7 @@ import mo_yanxi.condition_variable_single;
 
 import std;
 
-namespace mo_yanxi{
+namespace mo_yanxi::ccur{
 export
 template <typename T, typename Cont = std::deque<T>>
 	requires (std::is_default_constructible_v<T>)

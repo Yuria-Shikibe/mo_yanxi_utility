@@ -5,7 +5,7 @@ import std;
 import mo_yanxi.condition_variable_single;
 
 
-namespace mo_yanxi{
+namespace mo_yanxi::ccur{
 
 export
 template <typename T, typename Cont = std::deque<T>>
@@ -124,6 +124,6 @@ public:
 private:
 	Cont m_queue{};
 	std::mutex m_mutex{};
-	condition_variable_single m_cond{};
+	ccur::condition_variable_single m_cond{};
 };
 }

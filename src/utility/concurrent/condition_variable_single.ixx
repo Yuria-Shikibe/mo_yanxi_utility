@@ -7,7 +7,7 @@ export module mo_yanxi.condition_variable_single;
 import mo_yanxi.utility;
 import std;
 
-namespace mo_yanxi{
+namespace mo_yanxi::ccur{
 	export
 	class condition_variable_single{
 		std::counting_semaphore<> s_{std::ptrdiff_t{0}};

@@ -3,9 +3,6 @@
 import std;
 
 export namespace mo_yanxi{
-	//TODO these are truly shits...
-
-	//OPTM replace with inplace vector
 
 	/**
 	 * @brief stack in fixed size, provide bound check ONLY in debug mode
