@@ -58,13 +58,13 @@ jobs:
       - name: Build Debug
         run: |
           xmake f -m debug
-          xmake --toolchain=${{ matrix.toolchain }}
+          xmake f --toolchain=${{ matrix.toolchain }}
           xmake -b -y ${{ env.TARGET_NAME }}   
 
       - name: Build Release
         run: |
           xmake f -m release
-          xmake --toolchain=${{ matrix.toolchain }}
+          xmake f --toolchain=${{ matrix.toolchain }}
           xmake -b -y ${{ env.TARGET_NAME }}   
 
       # 4. 运行测试
