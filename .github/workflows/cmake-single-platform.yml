@@ -17,6 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        mode: [debug, release]
         # 使用 include 显式定义合法的 OS 与 Toolchain 组合
         # 这样自然就排除了 (Windows + gcc) 和 (Linux + msvc)
         include:
@@ -30,7 +31,7 @@ jobs:
             toolchain: gcc
           - os: ubuntu-latest
             toolchain: clang
-        mode: [debug, release]
+
 
     steps:
       - uses: actions/checkout@v4
