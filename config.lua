@@ -1,3 +1,4 @@
+local current_dir = os.scriptdir()
 
 rule("mo_yanxi.settings")
 on_load(function (target)
@@ -27,8 +28,7 @@ function mo_yanxi_utility_add_comp_to(target_name, component_names)
     end
 
     target(target_name)
-        local root = os.scriptdir()
-        local include_root = path.join(root, "src", "utility")
+        local include_root = path.join(current_dir, "src", "utility")
 
         set_policy("build.c++.modules", true)
 
@@ -38,7 +38,7 @@ function mo_yanxi_utility_add_comp_to(target_name, component_names)
             add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=0")
         end
 
-        add_includedirs(path.join(root, "include"), {public = true})
+        add_includedirs(path.join(current_dir, "include"), {public = true})
 
         if(component_names == nil or #component_names == 0) then
             add_files(path.join(include_root, "**.ixx"), {public = true})
@@ -60,10 +60,10 @@ function mo_yanxi_utility_import_default(target_name)
     target(target_name)
         set_kind("static")
         set_languages("c++latest")
+        set_policy("build.c++.modules", true)
 
         set_warnings("all")
         set_warnings("pedantic")
-        add_vectorexts("avx", "avx2")
     target_end()
 
     mo_yanxi_utility_add_comp_to(target_name)
