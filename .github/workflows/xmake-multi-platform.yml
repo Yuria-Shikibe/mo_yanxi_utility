@@ -97,7 +97,7 @@ jobs:
           # 执行配置和构建
           # 提示: xmake 支持配置和构建合并在一条命令，或者分两步
           echo "Configuring with: $XMAKE_FLAGS $EXTRA_FLAGS"
-          xmake f -c $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS -y
+          xmake f -c $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS -y -cv
           
           xmake -vD -y ${{ env.TARGET_NAME }}
 
