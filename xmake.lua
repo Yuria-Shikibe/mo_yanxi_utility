@@ -16,10 +16,6 @@ end
 includes("config.lua");
 
 mo_yanxi_utility_import_default("mo_yanxi.utility")
-target("mo_yanxi.utility")
-    add_vectorexts("avx", "avx2")
-target_end()
-
 
 target("mo_yanxi.utility.test")
     set_kind("binary")
@@ -29,7 +25,6 @@ target("mo_yanxi.utility.test")
 
     set_warnings("all")
     set_warnings("pedantic")
-    add_vectorexts("avx", "avx2")
 
     add_files("test/**.cpp")
     add_deps("mo_yanxi.utility")
