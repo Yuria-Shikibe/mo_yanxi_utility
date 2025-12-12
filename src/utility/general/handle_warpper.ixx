@@ -131,7 +131,7 @@ export namespace mo_yanxi{
 			requires (std::swappable<T>)
 		{
 			if(this == &other) return *this;
-			std::swap(handle, other.handle);
+			std::ranges::swap(handle, other.handle);
 			return *this;
 		}
 

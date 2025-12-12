@@ -21,6 +21,36 @@ on_load(function (target)
 end)
 rule_end()
 
+
+function mo_yanxi_utility_use_comp(component_names)
+    local include_root = path.join(current_dir, "src", "utility")
+
+    set_policy("build.c++.modules", true)
+
+    if is_mode("debug") then
+        add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=1")
+    else
+        add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=0")
+    end
+
+    add_includedirs(path.join(current_dir, "include"), {public = true})
+
+    if(component_names == nil or #component_names == 0) then
+        add_files(path.join(include_root, "**.ixx"), {public = true})
+        return
+    end
+
+    add_files(path.join(include_root, "general", "*.ixx"))
+
+    for _, name in ipairs(component_names) do
+        local dir = path.join(include_root, name);
+        if(os.isdir(dir)) then
+            add_files(path.join(dir, "**.ixx"), {public = true})
+        end
+    end
+end
+
+
 function mo_yanxi_utility_add_comp_to(target_name, component_names)
     if target_name == nil then
         print("MoYanxi: Invalid Target: ", target_name)
@@ -28,31 +58,7 @@ function mo_yanxi_utility_add_comp_to(target_name, component_names)
     end
 
     target(target_name)
-        local include_root = path.join(current_dir, "src", "utility")
-
-        set_policy("build.c++.modules", true)
-
-        if is_mode("debug") then
-            add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=1")
-        else
-            add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=0")
-        end
-
-        add_includedirs(path.join(current_dir, "include"), {public = true})
-
-        if(component_names == nil or #component_names == 0) then
-            add_files(path.join(include_root, "**.ixx"), {public = true})
-            return
-        end
-
-        add_files(path.join(include_root, "general", "*.ixx"))
-
-        for _, name in ipairs(component_names) do
-            local dir = path.join(include_root, name);
-            if(os.isdir(dir)) then
-                add_files(path.join(dir, "**.ixx"), {public = true})
-            end
-        end
+        mo_yanxi_utility_use_comp(component_names)
     target_end()
 end
 
