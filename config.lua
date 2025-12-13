@@ -65,7 +65,7 @@ end
 function mo_yanxi_utility_import_default(target_name)
     target(target_name)
         set_kind("static")
-        set_languages("c++latest")
+        set_languages("c++23")
         set_policy("build.c++.modules", true)
 
         set_warnings("all")

@@ -20,7 +20,7 @@ mo_yanxi_utility_import_default("mo_yanxi.utility")
 target("mo_yanxi.utility.test")
     set_kind("binary")
     set_extension(".exe")
-    set_languages("c++latest")
+    set_languages("c++23")
     set_policy("build.c++.modules", true)
 
     set_warnings("all")

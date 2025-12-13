@@ -119,6 +119,10 @@ export namespace mo_yanxi{
 		[[nodiscard]] constexpr const T* as_data() const noexcept{ return &handle; }
 		[[nodiscard]] constexpr T* as_data() noexcept{ return &handle; }
 
+		[[nodiscard]] constexpr T get() const noexcept requires(std::is_scalar_v<T>) {
+			return handle;
+		}
+
 		constexpr dependency(const dependency& other) = delete;
 
 		constexpr dependency(dependency&& other) noexcept
