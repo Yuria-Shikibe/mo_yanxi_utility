@@ -8,7 +8,13 @@
 #define ADAPTED_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #endif
 
-#if  defined(__clang__)
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(indeterminate)
+#define ADAPTED_INDETERMINATE [[indeterminate]]
+#else
+#define ADAPTED_INDETERMINATE
+#endif
+
+#if defined(__GNUC__) || defined(__clang__)
 	#define FORCE_INLINE [[gnu::always_inline]]
 #elif _MSC_VER
 	#define FORCE_INLINE [[msvc::forceinline]]
