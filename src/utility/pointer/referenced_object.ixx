@@ -237,7 +237,7 @@ protected:
 
 export
 /**
- * @warning Must work with external lifetime manage
+ * @warning Must test with external lifetime manage
  * does not propagate reference count on copy/move
  */
 struct referenced_object_atomic_nonpropagation{
