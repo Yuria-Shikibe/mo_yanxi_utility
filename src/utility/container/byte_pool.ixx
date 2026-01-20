@@ -48,9 +48,19 @@ namespace mo_yanxi {
         friend struct byte_buffer;
 
     private:
-        T* data_ = nullptr;
-        unsigned size_ = 0;
-        unsigned capacity_ = 0;
+		//Make the struct trivial
+
+        T* data_;
+        unsigned size_;
+        unsigned capacity_;
+
+    	static byte_buffer make_(T* data, unsigned size, unsigned cap_) noexcept {
+    		byte_buffer buffer;
+    		buffer.data_ = data;
+    		buffer.size_ = size;
+    		buffer.capacity_ = cap_;
+    		return buffer;
+    	}
 
     public:
         using value_type = T;
@@ -59,20 +69,11 @@ namespace mo_yanxi {
         using reverse_iterator = std::reverse_iterator<iterator>;
         using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-        constexpr byte_buffer() noexcept = default;
-
-        constexpr byte_buffer(T* data, unsigned size, unsigned capacity) noexcept
-            : data_(data), size_(size), capacity_(capacity) {}
-
         constexpr raw_buffer as_bytes() const noexcept {
             if constexpr (std::is_same_v<T, std::byte>) {
                 return *this;
             } else {
-                return raw_buffer{
-                    reinterpret_cast<std::byte*>(data_),
-                    size_ * sizeof(T),
-                    capacity_ * sizeof(T)
-                };
+            	return raw_buffer::make_(reinterpret_cast<std::byte*>(data_), size_ * sizeof(T), capacity_ * sizeof(T));
             }
         }
 
@@ -115,6 +116,8 @@ namespace mo_yanxi {
             }
         }
     };
+
+
 
     template <typename T, typename Alloc>
     struct byte_borrow {
@@ -220,7 +223,7 @@ namespace mo_yanxi {
 #ifdef MO_YANXI_BYTE_POOL_LEAK_CHECK
             allocated_.push_back(ptr);
 #endif
-            return raw_buffer{ptr, capacity_bytes, capacity_bytes};
+            return raw_buffer::make_(ptr, capacity_bytes, capacity_bytes);
         }
 
         FORCE_INLINE constexpr static unsigned get_bucket_index(unsigned capacity) noexcept {
@@ -243,13 +246,7 @@ namespace mo_yanxi {
                 std::uninitialized_default_construct(ptr, ptr + count);
             }
 
-            byte_buffer<T> typed_buf{
-                ptr,
-                count,
-                raw.capacity() / sizeof(T)
-            };
-
-            return byte_borrow<T, Alloc>{this, typed_buf};
+        	return byte_borrow<T, Alloc>{this, byte_buffer<T>::make_( ptr, count, raw.capacity() / sizeof(T))};
         }
 
         [[nodiscard]] constexpr raw_buffer acquire(unsigned size_bytes) {
@@ -261,7 +258,7 @@ namespace mo_yanxi {
 
             if (capacity > (1u << (MIN_SHIFT + BUCKET_CNT - 1))) [[unlikely]] {
                 auto buf = alloc_sys(capacity);
-                return raw_buffer{buf.data(), size_bytes, capacity};
+                return raw_buffer::make_(buf.data(), size_bytes, capacity);
             }
 
             const unsigned idx = get_bucket_index(capacity);
@@ -270,11 +267,11 @@ namespace mo_yanxi {
             if (!bucket.empty()) {
                 raw_buffer buf = bucket.back();
                 bucket.pop_back();
-                return raw_buffer{buf.data(), size_bytes, buf.capacity()};
+            	return raw_buffer::make_(buf.data(), size_bytes, capacity);
             }
 
             auto buf = alloc_sys(capacity);
-            return raw_buffer{buf.data(), size_bytes, capacity};
+        	return raw_buffer::make_(buf.data(), size_bytes, capacity);
         }
 
         constexpr void retire(raw_buffer byte_array) noexcept {
@@ -392,7 +389,7 @@ namespace mo_yanxi {
             }
 
             // 原地更新 buffer 大小
-            array_ = byte_buffer<T>{array_.data(), count, array_.capacity()};
+            array_ = byte_buffer<T>::make_(array_.data(), count, array_.capacity());
             return;
         }
 
