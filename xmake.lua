@@ -30,5 +30,20 @@ target("mo_yanxi.utility.test")
     add_deps("mo_yanxi.utility")
 target_end()
 
+target("byte_pool_test")
+    set_kind("binary")
+    set_extension(".exe")
+    set_languages("c++23")
+    set_policy("build.c++.modules", true)
+
+    set_warnings("all")
+    set_warnings("pedantic")
+
+    add_defines("MO_YANXI_UTILITY_ENABLE_CHECK")
+
+    add_files("test/byte_pool_test.cpp")
+    add_deps("mo_yanxi.utility")
+target_end()
+
 
 includes("xmake2cmake.lua")
