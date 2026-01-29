@@ -62,6 +62,10 @@ namespace mo_yanxi {
     		return buffer;
     	}
 
+    	void destruct_() const noexcept{
+    		std::ranges::destroy_n(data_, size_);
+    	}
+
     public:
         using value_type = T;
         using iterator = T*;
@@ -80,11 +84,11 @@ namespace mo_yanxi {
         template <typename U>
         constexpr byte_buffer<U> reinterpret_as() const noexcept {
             if constexpr (std::is_same_v<T, U>) return *this;
-            return byte_buffer<U>{
+            return byte_buffer<U>::make_(
                 reinterpret_cast<U*>(data_),
                 (size_ * sizeof(T)) / sizeof(U),
                 (capacity_ * sizeof(T)) / sizeof(U)
-            };
+            );
         }
 
         FORCE_INLINE constexpr T* data() const noexcept { return data_; }
@@ -114,6 +118,11 @@ namespace mo_yanxi {
             } else {
                 std::memset(static_cast<void*>(data_), val, size_ * sizeof(T));
             }
+        }
+
+    	template <typename Ty>
+		explicit operator byte_buffer<Ty>() const noexcept requires(std::same_as<T, std::uint8_t> || std::same_as<T, std::byte>){
+	        return byte_buffer<Ty>::make_(reinterpret_cast<Ty*>(data_), size_ / sizeof(Ty), capacity_ / sizeof(Ty));
         }
     };
 
@@ -187,6 +196,7 @@ namespace mo_yanxi {
             assert(idx < array_.size());
             return array_.data()[idx];
         }
+
     };
 
     template <typename Alloc>
@@ -234,22 +244,10 @@ namespace mo_yanxi {
         // --- 核心修改：Borrow 时进行条件初始化 ---
         template <typename T = std::byte>
         [[nodiscard]] constexpr byte_borrow<T, Alloc> borrow(unsigned count) {
-            raw_buffer raw = acquire(count * sizeof(T));
-
-            T* ptr = reinterpret_cast<T*>(raw.data());
-
-            // 性能优化：
-            // 如果 T 是隐式生存期类型 (如 int, char, trivial struct)，
-            // 分配的原始内存已经可以被视为 T 对象，无需调用 placement new / default construct。
-            // 只有当 T 是复杂类型 (如 std::string) 时，才初始化对象。
-            if constexpr (!IMPLICIT_LIFETIME_PRED(T)) {
-                std::uninitialized_default_construct(ptr, ptr + count);
-            }
-
-        	return byte_borrow<T, Alloc>{this, byte_buffer<T>::make_( ptr, count, raw.capacity() / sizeof(T))};
+        	return byte_borrow<T, Alloc>{this, acquire<T>(count)};
         }
 
-        [[nodiscard]] constexpr raw_buffer acquire(unsigned size_bytes) {
+        [[nodiscard]] constexpr raw_buffer acquire_raw(unsigned size_bytes) {
             if (size_bytes == 0) [[unlikely]] {
                 return {};
             }
@@ -274,7 +272,7 @@ namespace mo_yanxi {
         	return raw_buffer::make_(buf.data(), size_bytes, capacity);
         }
 
-        constexpr void retire(raw_buffer byte_array) noexcept {
+        constexpr void retire_raw(raw_buffer byte_array) noexcept {
             if (!byte_array) return;
             const unsigned cap = byte_array.capacity();
             // 检查 cap 是否合法 (>=512 且为 2 的幂)
@@ -292,6 +290,23 @@ namespace mo_yanxi {
             } catch (...) {
                 dealloc_buf(byte_array);
             }
+        }
+
+    	template <typename T = std::byte>
+    	constexpr byte_buffer<T> acquire(unsigned count){
+	        auto buf = static_cast<byte_buffer<T>>(acquire_raw(count * sizeof(T)));
+        	if constexpr (!IMPLICIT_LIFETIME_PRED(T)){
+        		std::ranges::uninitialized_default_construct(buf.to_span());
+        	}
+        	return buf;
+        }
+
+    	template <typename T = std::byte>
+    	constexpr void retire(byte_buffer<T> buffer) noexcept{
+        	if constexpr (std::is_trivially_destructible_v<T>){
+        		buffer.destruct_();
+        	}
+	        this->retire_raw(buffer.as_bytes());
         }
 
         constexpr byte_pool() = default;
@@ -393,8 +408,9 @@ namespace mo_yanxi {
             return;
         }
 
-        // 2. 空间不足，需要分配新的 Buffer
-        byte_borrow<T, Alloc> new_borrow = owner_->template borrow<T>(count);
+    	auto raw = owner_->acquire_raw(count * sizeof(T));
+    	byte_buffer<T> new_buf = static_cast<byte_buffer<T>>(raw);
+    	byte_borrow new_borrow(owner_, new_buf);
 
         // 3. 数据迁移 (仅当 reserve_current 为 true 时执行)
         // [修改]: 使用 if constexpr 包裹迁移逻辑
@@ -404,13 +420,18 @@ namespace mo_yanxi {
                 if constexpr (!IMPLICIT_LIFETIME_PRED(T)) {
                     // T 是复杂类型，new_borrow 里的对象已经构造好了 (borrow 行为)
                     // 使用 move 赋值进行覆盖
-                    std::move(array_.begin(), array_.end(), new_borrow.data());
+                    std::ranges::uninitialized_move_n(array_.begin(), old_size, new_borrow.data(), new_borrow.data() + old_size);
+                	std::ranges::uninitialized_default_construct(new_borrow.data() + old_size, new_borrow.data() + count);
                 } else {
                     // T 是 implicit lifetime (int, char)，内存是 raw 的
                     // 直接 memcpy
                     std::memcpy(new_borrow.data(), array_.data(), old_size * sizeof(T));
                 }
             }
+        }else{
+        	if constexpr (!IMPLICIT_LIFETIME_PRED(T)) {
+        		std::ranges::uninitialized_default_construct(new_borrow.data(), new_borrow.data() + count);
+        	}
         }
 
         // 4. 替换旧 Buffer 并释放资源
