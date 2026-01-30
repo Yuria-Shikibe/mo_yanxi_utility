@@ -95,11 +95,8 @@ namespace mo_yanxi::encode{
 	 */
 	template <std::integral Ret = unsigned>
 	[[nodiscard]] constexpr Ret getUnicodeLength(const char code) noexcept{
-		switch(auto rst = std::countl_one(std::bit_cast<std::uint8_t>(code))){
-			case 0 : return 1;
-			case 1 : return 0;
-			default : return rst;
-		}
+		constexpr Ret array[] = {1, 0, 2, 3, 4, 5, 6, 7, 8};
+		return array[std::countl_one(std::bit_cast<std::uint8_t>(code))];
 	}
 
 	export
