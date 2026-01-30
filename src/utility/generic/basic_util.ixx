@@ -25,44 +25,119 @@ consteval bool is_nothrow_constructible_from(std::type_identity<std::tuple<Args.
 struct redundant_test_result{
 	std::size_t drop;
 	std::size_t drop_back;
+
+	explicit consteval operator bool() const noexcept{
+		return drop != std::dynamic_extent && drop_back != std::dynamic_extent;
+	}
 };
 
 template <typename T, std::size_t skip_front, typename ...Args>
-consteval redundant_test_result test_constructible_drop_param_v(){
+consteval redundant_test_result test_constructible_drop_BACK_MAJOR_param_v(){
+    std::size_t rst_skip = std::dynamic_extent;
+    std::size_t rst_drop = 0;
+
+    using Tup = std::tuple<Args...>;
+    static constexpr std::size_t argc = sizeof...(Args);
+	static_assert(argc >= skip_front);
+    static constexpr std::size_t back_size = argc - skip_front;
+
+    using Front = tuple_take_n_elem_t<skip_front, Tup>;
+    using Back = tuple_drop_front_n_elem_t<skip_front, Tup>;
+
+    [&]<std::size_t ... Skip>(std::index_sequence<Skip...>){
+       ([&]<std::size_t CurSkip>(){
+          using BackCur = tuple_drop_front_n_elem_t<CurSkip, Back>;
+          return [&]<std::size_t ... Drop>(std::index_sequence<Drop...>){
+             return ([&]<std::size_t CurDrop>(){
+                using ConstructParams = tuple_cat_t<Front, tuple_drop_back_n_elem_t<CurDrop, BackCur>>;
+
+                if constexpr(mo_yanxi::is_constructible_from<T>(std::type_identity<ConstructParams>{})){
+	                rst_skip = CurSkip;
+	                rst_drop = CurDrop;
+	                return true;
+                }
+                return false;
+             }.template operator()<Drop>() || ...);
+          }(std::make_index_sequence<std::tuple_size_v<BackCur>>{});
+       }.template operator()<Skip>() || ...);
+    }(std::make_index_sequence<back_size + 1>{});
+
+    if (rst_skip == std::dynamic_extent) {
+        using FinalParams = tuple_cat_t<Front, std::tuple<>>;
+
+        if constexpr(mo_yanxi::is_constructible_from<T>(std::type_identity<FinalParams>{})){
+           rst_skip = back_size;
+           rst_drop = 0;
+        }
+    }
+
+    return redundant_test_result{rst_skip, rst_drop};
+}
+
+template <typename T, std::size_t skip_front, typename ...Args>
+consteval redundant_test_result test_constructible_drop_FRONT_MAJOR_param_v(){
 	std::size_t rst_skip = std::dynamic_extent;
 	std::size_t rst_drop = 0;
 
 	using Tup = std::tuple<Args...>;
 	static constexpr std::size_t argc = sizeof...(Args);
+	static_assert(argc >= skip_front);
+	static constexpr std::size_t back_size = argc - skip_front;
 
-	static_assert(skip_front <= argc);
 	using Front = tuple_take_n_elem_t<skip_front, Tup>;
 	using Back = tuple_drop_front_n_elem_t<skip_front, Tup>;
 
-	[&]<std::size_t ... Skip>(std::index_sequence<Skip...>){
-		([&]<std::size_t CurSkip>(){
-			using BackCur = tuple_drop_front_n_elem_t<CurSkip, Back>;
-			return [&]<std::size_t ... Drop>(std::index_sequence<Drop...>){
-				return ([&]<std::size_t CurDrop>(){
-					using ConstructParams = tuple_cat_t<Front, tuple_drop_back_n_elem_t<CurDrop, BackCur>>;
-					if constexpr(mo_yanxi::is_constructible_from<T>(std::type_identity<ConstructParams>{})){
-						rst_skip = CurSkip;
-						rst_drop = CurDrop;
-						return true;
-					}
-					return false;
-				}.template operator()<Drop>() || ...);
-			}(std::make_index_sequence<std::tuple_size_v<BackCur> + 1>{});
-		}.template operator()<Skip>() || ...);
-	}(std::make_index_sequence<argc + 1 - skip_front>{});
+	[&]<std::size_t ... Drop>(std::index_sequence<Drop...>){
+		([&]<std::size_t CurDrop>(){
+			using BackCur = tuple_drop_back_n_elem_t<CurDrop, Back>;
+
+			return [&]<std::size_t ... Skip>(std::index_sequence<Skip...>){
+			   return ([&]<std::size_t CurSkip>(){
+				  using ConstructParams = tuple_cat_t<Front, tuple_drop_front_n_elem_t<CurSkip, BackCur>>;
+
+				  if constexpr(mo_yanxi::is_constructible_from<T>(std::type_identity<ConstructParams>{})){
+					  rst_skip = CurSkip;
+					  rst_drop = CurDrop;
+					  return true;
+				  }
+				  return false;
+			   }.template operator()<Skip>() || ...);
+			}(std::make_index_sequence<std::tuple_size_v<BackCur>>{});
+
+		}.template operator()<Drop>() || ...);
+	}(std::make_index_sequence<back_size + 1>{});
+
+	if (rst_skip == std::dynamic_extent) {
+		using FinalParams = tuple_cat_t<Front, std::tuple<>>;
+
+		if constexpr(mo_yanxi::is_constructible_from<T>(std::type_identity<FinalParams>{})){
+			rst_skip = back_size;
+			rst_drop = 0;
+		}
+	}
 
 	return redundant_test_result{rst_skip, rst_drop};
 }
 
 template <typename T, std::size_t skip_front, typename ...Args>
 consteval std::size_t is_nothrow_back_redundant_constructible(){
-	static constexpr redundant_test_result rst = test_constructible_drop_param_v<T, skip_front, Args...>();
-	if constexpr (rst.drop == std::dynamic_extent)return true;
+	static constexpr redundant_test_result rst = test_constructible_drop_BACK_MAJOR_param_v<T, skip_front, Args...>();
+	if constexpr (!rst)return true;
+
+	using Tup = std::tuple<Args...>;
+	using Front = tuple_take_n_elem_t<skip_front, Tup>;
+	using Back = tuple_drop_front_n_elem_t<skip_front, Tup>;
+	using BackDropped_1 = tuple_drop_front_n_elem_t<rst.drop, Back>;
+	using BackDropped_2 = tuple_drop_back_n_elem_t<rst.drop_back, BackDropped_1>;
+	using ConstructParams = tuple_cat_t<Front, BackDropped_2>;
+
+	return mo_yanxi::is_nothrow_constructible_from<T>(std::type_identity<ConstructParams>{});
+}
+
+template <typename T, std::size_t skip_front, typename ...Args>
+consteval std::size_t is_nothrow_front_redundant_constructible(){
+	static constexpr redundant_test_result rst = test_constructible_drop_FRONT_MAJOR_param_v<T, skip_front, Args...>();
+	if constexpr (!rst)return true;
 
 	using Tup = std::tuple<Args...>;
 	using Front = tuple_take_n_elem_t<skip_front, Tup>;
@@ -76,9 +151,9 @@ consteval std::size_t is_nothrow_back_redundant_constructible(){
 
 export
 template <typename T, std::size_t skip_front = 0, typename ...Args>
-[[nodiscard]] T back_redundant_construct(Args&&... args) noexcept(is_nothrow_back_redundant_constructible<T, skip_front, Args&&...>()) {
-	static constexpr redundant_test_result drops = test_constructible_drop_param_v<T, skip_front, Args&&...>();
-	static_assert(drops.drop != std::dynamic_extent, "Unable to construct T from args");
+[[nodiscard]] constexpr T back_redundant_construct(Args&&... args) noexcept(is_nothrow_back_redundant_constructible<T, skip_front, Args&&...>()) {
+	static constexpr redundant_test_result drops = test_constructible_drop_BACK_MAJOR_param_v<T, skip_front, Args&&...>();
+	static_assert(drops, "Unable to construct T from args");
 
 	//TODO replace with pack index
 	auto fwd = std::forward_as_tuple(std::forward<Args>(args)...);
@@ -87,6 +162,39 @@ template <typename T, std::size_t skip_front = 0, typename ...Args>
 		return T(std::get<Idx + (Idx >= skip_front ? drops.drop : 0uz)>(fwd) ...);
 	}(std::make_index_sequence<sizeof...(Args) - drops.drop - drops.drop_back>{});
 }
+
+export
+template <typename T, std::size_t skip_front = 0, typename ...Args>
+[[nodiscard]] constexpr T front_redundant_construct(Args&&... args) noexcept(is_nothrow_front_redundant_constructible<T, skip_front, Args&&...>()) {
+	static constexpr redundant_test_result drops = test_constructible_drop_FRONT_MAJOR_param_v<T, skip_front, Args&&...>();
+	static_assert(drops, "Unable to construct T from args");
+
+	//TODO replace with pack index
+	auto fwd = std::forward_as_tuple(std::forward<Args>(args)...);
+
+	return [&]<std::size_t ...Idx>(std::index_sequence<Idx...>){
+		return T(std::get<Idx + (Idx >= skip_front ? drops.drop : 0uz)>(fwd) ...);
+	}(std::make_index_sequence<sizeof...(Args) - drops.drop - drops.drop_back>{});
+}
+
+struct T{
+	int v{};
+
+	[[nodiscard]] constexpr T() = default;
+
+	[[nodiscard]] constexpr T(std::string_view){}
+
+	[[nodiscard]] constexpr explicit T(int v)
+		: v(v){
+	}
+};
+
+constexpr T t1 = back_redundant_construct<T>(std::string_view{}, 2);
+static_assert(t1.v == 0);
+
+
+constexpr T t2 = front_redundant_construct<T>(std::string_view{}, 2);
+static_assert(t2.v == 2);
 
 #pragma endregion
 

@@ -2,11 +2,11 @@
 // Created by Matrix on 2024/10/31.
 //
 
-export module mo_yanxi.shared_queue;
+export module mo_yanxi.concurrent.shared_queue;
 
 import mo_yanxi.meta_programming;
 import mo_yanxi.concepts;
-import mo_yanxi.condition_variable_single;
+import mo_yanxi.concurrent.condition_variable_single;
 
 import std;
 

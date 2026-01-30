@@ -237,7 +237,7 @@ protected:
 
 export
 /**
- * @warning Must work with external lifetime manage
+ * @warning Must test with external lifetime manage
  * does not propagate reference count on copy/move
  */
 struct referenced_object_atomic_nonpropagation{
@@ -267,6 +267,11 @@ protected:
 		return reference_count_.load(std::memory_order_relaxed);
 	}
 
+	bool check_droppable_and_retire() noexcept{
+		std::size_t expected_ = 0;
+		return reference_count_.compare_exchange_strong(expected_, std::dynamic_extent, std::memory_order_release, std::memory_order_relaxed);
+	}
+
 	[[nodiscard]] bool droppable() const noexcept{
 		return reference_count_.load(std::memory_order_acquire) == 0;
 	}
@@ -274,8 +279,17 @@ protected:
 	/**
 	 * @brief take reference
 	 */
-	void ref_incr() noexcept{
-		reference_count_.fetch_add(1, std::memory_order_relaxed);
+	bool ref_incr() noexcept{
+		auto cur = reference_count_.load(std::memory_order_relaxed);
+		if(cur == std::dynamic_extent){
+			return false;
+		}
+
+		while(true){
+			if(reference_count_.compare_exchange_weak(cur, cur + 1, std::memory_order_relaxed, std::memory_order_relaxed)){
+				return true;
+			}
+		}
 	}
 
 	/**
@@ -373,8 +387,17 @@ void referenced_ptr<T, D>::decr() noexcept{
 
 template <typename T, typename D>
 void referenced_ptr<T, D>::incr() noexcept{
-	object->ref_incr();
+	using return_type = decltype(std::declval<T*>()->ref_incr());
+
+	if constexpr (std::is_same_v<return_type, bool>) {
+		if (!object->ref_incr()) {
+			object = nullptr;
+		}
+	} else {
+		object->ref_incr();
+	}
 }
+
 }
 
 template <typename T, typename D>

@@ -1213,6 +1213,10 @@ struct section{
 	T from;
 	T to;
 
+	MATH_ATTR constexpr T mid() const noexcept{
+		return (from + to) / T(2);
+	}
+
 	MATH_ATTR constexpr bool within_closed(const T& value) const noexcept requires std::totally_ordered<T>{
 		return value >= from && value <= to;
 	}
@@ -1238,6 +1242,11 @@ struct section{
 		from -= value;
 		to += value;
 		return *this;
+	}
+
+	template <typename D>
+	explicit(!std::convertible_to<T, D>) operator section<D>() const noexcept requires(std::constructible_from<D, const T&>){
+		return section<D>{D(from), D(to)};
 	}
 
 	MATH_ATTR constexpr T normalize(const T value) const noexcept requires (std::floating_point<T>){
@@ -1288,11 +1297,79 @@ struct section{
 		return section;
 	}
 
-	//
-	// FORCE_INLINE constexpr friend section operator/(const T val, section section) noexcept{
-	// 	section /= val;
-	// 	return section;
-	// }
+	FORCE_INLINE constexpr section& operator+=(const section& other) noexcept {
+		from += other.from;
+		to += other.to;
+		return *this;
+	}
+
+	FORCE_INLINE constexpr friend section operator+(section lhs, const section& rhs) noexcept {
+		lhs += rhs;
+		return lhs;
+	}
+
+	FORCE_INLINE constexpr section& operator-=(const section& other) noexcept {
+		from -= other.from;
+		to -= other.to;
+		return *this;
+	}
+
+	FORCE_INLINE constexpr friend section operator-(section lhs, const section& rhs) noexcept {
+		lhs -= rhs;
+		return lhs;
+	}
+
+	// ==========================================
+	// Scalar Addition (Translation/Shift)
+	// ==========================================
+
+	FORCE_INLINE constexpr section& operator+=(const T val) noexcept {
+		from += val;
+		to += val;
+		return *this;
+	}
+
+	FORCE_INLINE constexpr friend section operator+(section sec, const T val) noexcept {
+		sec += val;
+		return sec;
+	}
+
+	FORCE_INLINE constexpr friend section operator+(const T val, section sec) noexcept {
+		sec += val;
+		return sec;
+	}
+
+	// ==========================================
+	// Scalar Subtraction (Translation/Shift)
+	// ==========================================
+
+	FORCE_INLINE constexpr section& operator-=(const T val) noexcept {
+		from -= val;
+		to -= val;
+		return *this;
+	}
+
+	FORCE_INLINE constexpr friend section operator-(section sec, const T val) noexcept {
+		sec -= val;
+		return sec;
+	}
+
+	// 实现 T - section (例如: 1.0 - section)，结果为 {val - from, val - to}
+	FORCE_INLINE constexpr friend section operator-(const T val, const section& sec) noexcept {
+		return {val - sec.from, val - sec.to};
+	}
+
+	template <typename S, typename Fn, typename ...Args>
+		requires (std::invocable<const Fn, copy_qualifier_t<S&&, T>, Args...>)
+	FORCE_INLINE decltype(auto) constexpr invoke(this S&& self, const Fn fn, const Args& ...args) noexcept(noexcept(std::invoke(fn, std::forward_like<S>(self.from), args...))){
+		if constexpr (std::is_void_v<std::invoke_result_t<const Fn, copy_qualifier_t<S&&, T>, const Args&...>>){
+			std::invoke(fn, std::forward_like<S>(self.from), args...);
+			std::invoke(fn, std::forward_like<S>(self.to), args...);
+			return ;
+		}else{
+			return section{std::invoke(fn, std::forward_like<S>(self.from), args...), std::invoke(fn, std::forward_like<S>(self.to), args...)};
+		}
+	}
 };
 
 export
@@ -1314,6 +1391,10 @@ struct based_section{
 
 	MATH_ATTR constexpr T length() const noexcept{
 		return math::abs(extent);
+	}
+
+	MATH_ATTR constexpr T dst() const noexcept{
+		return base + extent;
 	}
 
 	MATH_ATTR constexpr T operator[](std::floating_point auto fp) const noexcept{

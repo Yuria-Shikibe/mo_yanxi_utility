@@ -1,8 +1,8 @@
 
-export module mo_yanxi.mpsc_queue;
+export module mo_yanxi.concurrent.mpsc_queue;
 
 import std;
-import mo_yanxi.condition_variable_single;
+import mo_yanxi.concurrent.condition_variable_single;
 
 
 namespace mo_yanxi::ccur{

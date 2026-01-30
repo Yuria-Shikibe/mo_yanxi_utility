@@ -34,6 +34,10 @@ export namespace mo_yanxi{
 
 		[[nodiscard]] constexpr explicit(false) snap_shot(const T& ref) : base{ref}, temp{ref}{}
 
+		constexpr bool is_dirty() const noexcept(is_nothrow_equality_comparable) requires (std::equality_comparable<T>){
+			return base != temp;
+		}
+
 		constexpr void resume() noexcept(is_nothrow_copy_assignable) {
 			temp = base;
 		}
@@ -50,13 +54,6 @@ export namespace mo_yanxi{
 			return true;
 		}
 
-		template <typename R>
-		constexpr void resumeProj(R T::* mptr) requires requires{
-			requires std::is_copy_assignable_v<std::invoke_result_t<decltype(mptr), T&>>;
-		}{
-			std::invoke_r<R&>(mptr, temp) = std::invoke_r<const R&>(mptr, base);
-		}
-
 		constexpr void apply() noexcept(is_nothrow_copy_assignable) {
 			base = temp;
 		}
@@ -65,8 +62,19 @@ export namespace mo_yanxi{
 			base = std::move(temp);
 		}
 
-		template <typename R>
-		constexpr void apply_proj(R T::* mptr) requires requires{
+
+
+		template <typename R, typename Ty = T /*Used to resolve bug on msvc*/>
+		constexpr void resume_proj(R Ty::* mptr) requires requires{
+			requires std::is_class_v<T>;
+			requires std::is_copy_assignable_v<std::invoke_result_t<decltype(mptr), T&>>;
+		}{
+			std::invoke_r<R&>(mptr, temp) = std::invoke_r<const R&>(mptr, base);
+		}
+
+		template <typename R, typename Ty = T>
+		constexpr void apply_proj(R Ty::* mptr) requires requires{
+			requires std::is_class_v<T>;
 			requires std::is_copy_assignable_v<std::invoke_result_t<decltype(mptr), T&>>;
 		}{
 			std::invoke_r<R&>(mptr, base) = std::invoke_r<const R&>(mptr, temp);

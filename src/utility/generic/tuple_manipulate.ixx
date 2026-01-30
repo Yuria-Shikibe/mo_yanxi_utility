@@ -253,7 +253,7 @@ template <typename Tuple>
 using tuple_drop_last_elem_t = typename decltype(remove_tuple_last_elem<1, Tuple>())::type;
 
 
-template <typename T, typename Tuple, size_t Index = 0>
+template <typename T, typename Tuple, std::size_t Index = 0>
 consteval std::size_t find_first_index_in_tuple(){
 	if constexpr(Index >= std::tuple_size_v<Tuple>){
 		return Index;
