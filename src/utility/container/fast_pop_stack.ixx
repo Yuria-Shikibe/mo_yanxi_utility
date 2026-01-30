@@ -1,5 +1,3 @@
-module;
-
 export module ext.fast_pop_stack;
 
 import mo_yanxi.array_stack;
