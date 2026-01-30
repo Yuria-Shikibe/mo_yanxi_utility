@@ -95,8 +95,19 @@ namespace mo_yanxi::encode{
 	 */
 	template <std::integral Ret = unsigned>
 	[[nodiscard]] constexpr Ret getUnicodeLength(const char code) noexcept{
-		constexpr Ret array[] = {1, 0, 2, 3, 4, 5, 6, 7, 8};
-		return array[std::countl_one(std::bit_cast<std::uint8_t>(code))];
+		static constexpr auto UTF8_LUT = []{
+			std::array<std::uint8_t, 256> table{};
+			for (int i = 0; i < 256; ++i) {
+				if (i < 0x80) table[i] = 1;
+				else if ((i & 0xE0) == 0xC0) table[i] = 2;
+				else if ((i & 0xF0) == 0xE0) table[i] = 3;
+				else if ((i & 0xF8) == 0xF0) table[i] = 4;
+				else table[i] = 0;
+			}
+			return table;
+		}();
+
+		return UTF8_LUT[std::bit_cast<std::uint8_t>(code)];
 	}
 
 	export

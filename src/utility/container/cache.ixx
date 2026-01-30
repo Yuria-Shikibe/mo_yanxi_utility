@@ -123,6 +123,12 @@ namespace mo_yanxi {
             this->push_front(target_idx);
         }
 
+        template <typename... Args>
+            requires (std::constructible_from<value_type, Args&&...>)
+        void emplace(const K& key, Args&&... args) {
+            this->emplace(K{key}, std::forward<Args&&>(args)...);
+        }
+
         // --- Put 包装器 (均转发至 emplace) ---
 
         void put(K&& key, V&& value) {
