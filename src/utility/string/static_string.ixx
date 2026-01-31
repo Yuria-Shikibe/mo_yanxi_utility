@@ -24,7 +24,7 @@ namespace mo_yanxi {
 
         using size_type = smallest_uint_t<N>;
 
-        constexpr static_string() noexcept : m_data{ 0 } {}
+        constexpr static_string() noexcept = default;
 
         constexpr static_string(const char* str) {
             assign(str);
@@ -102,9 +102,14 @@ namespace mo_yanxi {
             return std::string_view(lhs) == std::string_view(rhs);
         }
 
+    	constexpr const char(& get_data() const noexcept)[N]{
+	        return m_data;
+        }
+
+
     private:
         size_type m_size{};
-        char m_data[N];
+        char m_data[N]{};
     };
 }
 
