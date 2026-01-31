@@ -230,7 +230,7 @@ namespace mo_yanxi{
 			if(auto itr = this->find(key); itr != this->end()){
 				return {itr, false};
 			}else{
-				return this->try_emplace(std::string(key), std::forward<Arg>(val) ...);
+				return this->self_type::try_emplace(std::string(key), std::forward<Arg>(val) ...);
 			}
 		}
 
@@ -241,7 +241,7 @@ namespace mo_yanxi{
 
 		template <class ...Arg>
 		std::pair<typename self_type::iterator, bool> insert_or_assign(const std::string_view key, Arg&& ...val) {
-			return this->insert_or_assign(static_cast<std::string>(key), std::forward<Arg>(val) ...);
+			return this->self_type::insert_or_assign(static_cast<std::string>(key), std::forward<Arg>(val) ...);
 		}
 
 		template <std::size_t sz, class ...Arg>
@@ -256,7 +256,7 @@ namespace mo_yanxi{
 				return itr->second;
 			}
 
-			return this->emplace(std::string(key), typename self_type::mapped_type{}).first->second;
+			return this->self_type::emplace(std::string(key), typename self_type::mapped_type{}).first->second;
 		}
 
 		V& operator[](const char* key) {

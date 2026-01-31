@@ -37,31 +37,31 @@ namespace mo_yanxi::math{
 		using const_pass_t = mo_yanxi::conditional_pass_type<const vector2, sizeof(T) * 2>;
 
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr vector2 operator+(const_pass_t tgt) const noexcept{
-			return {x + tgt.x, y + tgt.y};
+			return vector2(x + tgt.x, y + tgt.y);
 		}
 
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr vector2 operator-(const_pass_t tgt) const noexcept {
 			if constexpr(std::same_as<bool, T>){
-				return {x && !tgt.x, y && !tgt.y};
+				return vector2(x && !tgt.x, y && !tgt.y);
 			}else{
-				return {x - tgt.x, y - tgt.y};
+				return vector2(x - tgt.x, y - tgt.y);
 			}
 		}
 
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr vector2 operator*(const_pass_t tgt) const noexcept {
-			return {x * tgt.x, y * tgt.y};
+			return vector2(x * tgt.x, y * tgt.y);
 		}
 
 		FORCE_INLINE friend constexpr vector2 operator*(const_pass_t v, const T val) noexcept {
-			return {v.x * val, v.y * val};
+			return vector2(v.x * val, v.y * val);
 		}
 
 		FORCE_INLINE friend constexpr vector2 operator*(const T val, const_pass_t v) noexcept {
-			return {v.x * val, v.y * val};
+			return vector2(v.x * val, v.y * val);
 		}
 
 		FORCE_INLINE constexpr vector2 operator!() const noexcept requires (std::same_as<T, bool>){
-			return {!x, !y};
+			return vector2(!x, !y);
 		}
 
 		/*template <ext::number N>
@@ -78,19 +78,19 @@ namespace mo_yanxi::math{
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr auto operator-() const noexcept{
 			if constexpr (std::unsigned_integral<T>){
 				using S = std::make_signed_t<T>;
-				return vector2<std::make_signed_t<T>>{-static_cast<S>(x), -static_cast<S>(y)};
+				return vector2<std::make_signed_t<T>>(-static_cast<S>(x), -static_cast<S>(y));
 			}else{
-				return vector2<T>{- x, - y};
+				return vector2<T>(- x, - y);
 			}
 
 		}
 
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr vector2 operator/(const T val) const noexcept {
-			return {x / val, y / val};
+			return vector2(x / val, y / val);
 		}
 
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr vector2 operator/(const_pass_t tgt) const noexcept {
-			return {x / tgt.x, y / tgt.y};
+			return vector2(x / tgt.x, y / tgt.y);
 		}
 
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr vector2 operator%(const_pass_t tgt) const noexcept {
@@ -103,9 +103,9 @@ namespace mo_yanxi::math{
 
 		PURE_FN FORCE_INLINE constexpr vector2 operator~() const noexcept{
 			if constexpr (std::floating_point<T>){
-				return {static_cast<T>(1) / x, static_cast<T>(1) / y};
+				return vector2(static_cast<T>(1) / x, static_cast<T>(1) / y);
 			}else if constexpr (std::unsigned_integral<T>){
-				return {~x, ~y};
+				return vector2(~x, ~y);
 			}else{
 				static_assert(false, "unsupported");
 			}
