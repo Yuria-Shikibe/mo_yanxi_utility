@@ -69,9 +69,179 @@ namespace mo_yanxi {
             }
         }
 
-        // 禁止拷贝
-        lru_cache(const lru_cache&) = delete;
-        lru_cache& operator=(const lru_cache&) = delete;
+        lru_cache(const lru_cache& other) {
+            // 1. 复制元数据
+            head_ = other.head_;
+            tail_ = other.tail_;
+            free_head_ = other.free_head_;
+            size_ = other.size_;
+            links_ = other.links_; // link_node 是 trivial 的，可以直接复制
+
+            // 2. 深度复制有效元素 (基于 active_mask_)
+            for (size_type i = 0; i < N; ++i) {
+                if (other.active_mask_.test(i)) {
+                    // 构造 Key
+                    std::construct_at(get_raw_key_ptr(i), *other.get_key_ptr(i));
+
+                    try {
+                        // 构造 Value
+                        std::construct_at(get_raw_val_ptr(i), *other.get_val_ptr(i));
+                    } catch (...) {
+                        // 强异常保证：如果 Value 构造失败，需销毁已构造的 Key
+                        std::destroy_at(get_key_ptr(i));
+                        // 此时 active_mask_ 尚未设置该位，析构函数不会重复销毁
+                        throw;
+                    }
+
+                    // 构造成功后标记为活跃
+                    active_mask_.set(i);
+                }
+            }
+        }
+
+        /**
+         * @brief 移动构造函数
+         * 从 other 移动构造所有元素，并接管链表结构。
+         * 注意：由于是栈上内存布局，这里不是指针交换，而是逐个元素的 Move Construct。
+         */
+        lru_cache(lru_cache&& other) noexcept(
+            std::is_nothrow_move_constructible_v<K> &&
+            std::is_nothrow_move_constructible_v<V>
+        ) {
+            // 1. 复制元数据
+            head_ = other.head_;
+            tail_ = other.tail_;
+            free_head_ = other.free_head_;
+            size_ = other.size_;
+            links_ = other.links_;
+
+            // 2. 移动构造有效元素
+            for (size_type i = 0; i < N; ++i) {
+                if (other.active_mask_.test(i)) {
+                    std::construct_at(get_raw_key_ptr(i), std::move(*other.get_key_ptr(i)));
+                    std::construct_at(get_raw_val_ptr(i), std::move(*other.get_val_ptr(i)));
+                    active_mask_.set(i);
+                }
+            }
+
+            // 3. 重置源对象 (防止 Double Free)
+            // 即使 other 的元素已被 move，other 的析构函数仍会运行。
+            // 必须清空 other 的 active_mask_，使其析构函数“无事可做”。
+            other.active_mask_.reset();
+            other.size_ = 0;
+            other.head_ = invalid_index;
+            other.tail_ = invalid_index;
+            other.free_head_ = invalid_index; // 或重置为初始链表，但设为 invalid 足以保证安全
+        }
+
+        /**
+         * @brief 复制赋值运算符
+         * 采用 "Destroy then Copy" 策略
+         */
+        lru_cache& operator=(const lru_cache& other) {
+            if (this != &other) {
+                // 1. 清理当前对象资源
+                this->clear_resources();
+
+                // 2. 调用复制构造的逻辑 (placement new 自身)
+                // 这种写法虽然 hacky 但避免了逻辑重复。更标准的做法是提取 verify_copy 函数。
+                // 这里为了简洁，展开逻辑：
+
+                head_ = other.head_;
+                tail_ = other.tail_;
+                free_head_ = other.free_head_;
+                size_ = other.size_;
+                links_ = other.links_;
+
+                for (size_type i = 0; i < N; ++i) {
+                    if (other.active_mask_.test(i)) {
+                        std::construct_at(get_raw_key_ptr(i), *other.get_key_ptr(i));
+                        try {
+                            std::construct_at(get_raw_val_ptr(i), *other.get_val_ptr(i));
+                        } catch (...) {
+                            std::destroy_at(get_key_ptr(i));
+                            throw;
+                        }
+                        active_mask_.set(i);
+                    }
+                }
+            }
+            return *this;
+        }
+
+        /**
+         * @brief 移动赋值运算符
+         */
+        lru_cache& operator=(lru_cache&& other) noexcept(
+            std::is_nothrow_move_constructible_v<K> &&
+            std::is_nothrow_move_constructible_v<V>
+        ) {
+            if (this != &other) {
+                // 1. 清理当前对象
+                this->clear_resources();
+
+                // 2. 移动数据
+                head_ = other.head_;
+                tail_ = other.tail_;
+                free_head_ = other.free_head_;
+                size_ = other.size_;
+                links_ = other.links_;
+
+                for (size_type i = 0; i < N; ++i) {
+                    if (other.active_mask_.test(i)) {
+                        std::construct_at(get_raw_key_ptr(i), std::move(*other.get_key_ptr(i)));
+                        std::construct_at(get_raw_val_ptr(i), std::move(*other.get_val_ptr(i)));
+                        active_mask_.set(i);
+                    }
+                }
+
+                // 3. 重置源对象
+                other.active_mask_.reset();
+                other.size_ = 0;
+                other.head_ = invalid_index;
+                other.tail_ = invalid_index;
+                other.free_head_ = invalid_index;
+            }
+            return *this;
+        }
+
+    private:
+        // 辅助函数：清理当前所有资源（用于赋值前或析构）
+        void clear_resources() noexcept {
+            if constexpr (!std::is_trivially_destructible_v<K> || !std::is_trivially_destructible_v<V>) {
+                for (size_type i = 0; i < N; ++i) {
+                    if (active_mask_.test(i)) {
+                        std::destroy_at(this->get_key_ptr(i));
+                        std::destroy_at(this->get_val_ptr(i));
+                    }
+                }
+            }
+            active_mask_.reset();
+            size_ = 0;
+            // 不需要重置 links_，因为会被立即覆盖
+        }
+
+    public:
+    	void clear() noexcept{
+    		if constexpr (!std::is_trivially_destructible_v<K> || !std::is_trivially_destructible_v<V>){
+    			for (size_type i = 0; i < N; ++i) {
+    				if (active_mask_.test(i)) {
+    					std::destroy_at(this->get_key_ptr(i));
+    					std::destroy_at(this->get_val_ptr(i));
+    				}
+    			}
+    		}
+
+    		active_mask_.reset();
+    		size_ = 0;
+    		head_ = invalid_index;
+    		tail_ = invalid_index;
+    		free_head_ = 0;
+
+    		for (size_type i = 0; i < N; ++i) {
+    			this->links_[i].next = (i + 1 < N) ? i + 1 : invalid_index;
+    		}
+    	}
 
         /**
          * @brief 原位构造插入 (核心方法)

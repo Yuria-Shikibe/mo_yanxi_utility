@@ -1,4 +1,4 @@
-export module mo_yanxi.string_array;
+export module mo_yanxi.static_string;
 
 import std;
 
@@ -26,30 +26,52 @@ namespace mo_yanxi {
 
         constexpr static_string() noexcept : m_data{ 0 } {}
 
-        constexpr static_string(const char* str) noexcept {
+        constexpr static_string(const char* str) {
             assign(str);
         }
 
-        constexpr static_string(std::string_view sv) noexcept {
+        constexpr static_string(std::string_view sv) {
             assign(sv);
         }
 
         // 核心修改：区分编译期和运行时的赋值逻辑
-        constexpr void assign(std::string_view sv_truncate_exceed) noexcept {
-            m_size = static_cast<size_type>(std::min(sv_truncate_exceed.length(), max_size));
+        constexpr void assign(std::string_view sv) {
+        	const auto src_len = sv.length();
+        	if(src_len > max_size){
+        		throw std::bad_alloc{};
+        	}
+
+            m_size = src_len;
 
             if consteval {
                 // [编译期] 必须使用循环，因为 memcpy 不是 constexpr
                 for (std::size_t i = 0; i < m_size; ++i) {
-                    m_data[i] = sv_truncate_exceed[i];
+                    m_data[i] = sv[i];
                 }
             }
             else {
-            	std::memcpy(m_data, sv_truncate_exceed.data(), m_size);
+            	std::memcpy(m_data, sv.data(), m_size);
             }
 
             // 强制 zero termination
             m_data[m_size] = '\0';
+        }
+
+    	constexpr void assign_or_truncate(std::string_view sv) noexcept {
+        	m_size = static_cast<size_type>(std::min(sv.length(), max_size));;
+
+        	if consteval {
+        		// [编译期] 必须使用循环，因为 memcpy 不是 constexpr
+        		for (std::size_t i = 0; i < m_size; ++i) {
+        			m_data[i] = sv[i];
+        		}
+        	}
+        	else {
+        		std::memcpy(m_data, sv.data(), m_size);
+        	}
+
+        	// 强制 zero termination
+        	m_data[m_size] = '\0';
         }
 
         [[nodiscard]] constexpr std::size_t size() const noexcept {
