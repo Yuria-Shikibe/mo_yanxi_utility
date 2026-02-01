@@ -457,8 +457,12 @@ namespace mo_yanxi::math{
 			}
 		}
 
-		[[nodiscard]] PURE_FN FORCE_INLINE constexpr bool is_Inf() const noexcept{
+		[[nodiscard]] PURE_FN FORCE_INLINE constexpr bool is_any_inf() const noexcept{
 			return math::isinf(x) || math::isinf(y);
+		}
+
+		[[nodiscard]] PURE_FN FORCE_INLINE constexpr bool is_both_inf() const noexcept{
+			return math::isinf(x) && math::isinf(y);
 		}
 
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr float length() const noexcept {
