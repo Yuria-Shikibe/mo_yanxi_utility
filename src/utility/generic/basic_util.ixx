@@ -280,6 +280,8 @@ struct overload_def_noop : private Fs...{
 	constexpr explicit(false) overload_def_noop(std::in_place_type_t<V>, Args&&... fs) : Fs{std::forward<Args>(fs)}...{
 	}
 
+	constexpr overload_def_noop() noexcept requires(sizeof...(Fs) == 0) = default;
+
 	using Fs::operator()...;
 
 	template <typename... T>
