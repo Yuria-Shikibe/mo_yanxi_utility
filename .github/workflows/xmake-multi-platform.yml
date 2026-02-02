@@ -19,7 +19,7 @@ jobs:
       matrix:
         os: [
           windows-latest,
-#          ubuntu-latest
+          #          ubuntu-latest
         ]
         toolchain: [ msvc, clang, gcc ]
         mode: [ debug, release ]
@@ -30,17 +30,20 @@ jobs:
             toolchain: clang
 
           # 2. Linux: 使用 GCC/Clang
-#          - os: ubuntu-latest
-#            toolchain: gcc
-#          - os: ubuntu-latest
-#            toolchain: clang
+          - os: ubuntu-latest
+            toolchain: gcc
+          - os: ubuntu-latest
+            toolchain: clang
+
         exclude:
+          - os: ubuntu-latest
+            toolchain: msvc
           - os: windows-latest
             toolchain: gcc
-#          - os: ubuntu-latest
-#            toolchain: msvc
-#          - os: ubuntu-latest
-#            toolchain: gcc
+    #          - os: ubuntu-latest
+    #            toolchain: msvc
+    #          - os: ubuntu-latest
+    #            toolchain: gcc
 
 
     steps:
@@ -51,7 +54,7 @@ jobs:
         uses: xmake-io/github-action-setup-xmake@v1
         with:
           xmake-version: latest
-#          actions-cache-folder: '.xmake-cache'
+      #          actions-cache-folder: '.xmake-cache'
 
 
       - name: Install LLVM  (Linux Clang only)
