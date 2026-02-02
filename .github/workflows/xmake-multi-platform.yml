@@ -30,8 +30,8 @@ jobs:
             toolchain: clang
 
           # 2. Linux: 使用 GCC/Clang
-          - os: ubuntu-latest
-            toolchain: gcc
+#          - os: ubuntu-latest
+#            toolchain: gcc
           - os: ubuntu-latest
             toolchain: clang
 
@@ -42,8 +42,8 @@ jobs:
             toolchain: gcc
     #          - os: ubuntu-latest
     #            toolchain: msvc
-    #          - os: ubuntu-latest
-    #            toolchain: gcc
+          - os: ubuntu-latest
+            toolchain: gcc
 
 
     steps:
