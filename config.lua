@@ -1,5 +1,3 @@
-local current_dir = os.scriptdir()
-
 rule("mo_yanxi.settings")
 on_load(function (target)
     -- 设置 C++ 标准
@@ -23,7 +21,7 @@ rule_end()
 
 
 function mo_yanxi_utility_use_comp(component_names)
-    local include_root = path.join(current_dir, "src", "utility")
+    local include_root = path.join("src", "utility")
 
     set_policy("build.c++.modules", true)
 
@@ -33,7 +31,7 @@ function mo_yanxi_utility_use_comp(component_names)
         add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=0")
     end
 
-    add_includedirs(path.join(current_dir, "include"), {public = true})
+    add_includedirs("include", {public = true})
 
     if(component_names == nil or #component_names == 0) then
         add_files(path.join(include_root, "**.ixx"), {public = true})
