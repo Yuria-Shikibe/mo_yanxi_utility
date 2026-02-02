@@ -52,12 +52,12 @@ namespace mo_yanxi::math{
 			return vector2(x * tgt.x, y * tgt.y);
 		}
 
-		FORCE_INLINE friend constexpr vector2 operator*(const_pass_t v, const T val) noexcept {
-			return vector2(v.x * val, v.y * val);
+		FORCE_INLINE friend constexpr vector2<T> operator *(vector2<T> v, const T val) noexcept {
+			return vector2<T>(v.x * val, v.y * val);
 		}
 
-		FORCE_INLINE friend constexpr vector2 operator*(const T val, const_pass_t v) noexcept {
-			return vector2(v.x * val, v.y * val);
+		FORCE_INLINE friend constexpr vector2<T> operator *(const T val, vector2<T> v) noexcept {
+			return vector2<T>(v.x * val, v.y * val);
 		}
 
 		FORCE_INLINE constexpr vector2 operator!() const noexcept requires (std::same_as<T, bool>){
@@ -457,8 +457,12 @@ namespace mo_yanxi::math{
 			}
 		}
 
-		[[nodiscard]] PURE_FN FORCE_INLINE constexpr bool is_Inf() const noexcept{
+		[[nodiscard]] PURE_FN FORCE_INLINE constexpr bool is_any_inf() const noexcept{
 			return math::isinf(x) || math::isinf(y);
+		}
+
+		[[nodiscard]] PURE_FN FORCE_INLINE constexpr bool is_both_inf() const noexcept{
+			return math::isinf(x) && math::isinf(y);
 		}
 
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr float length() const noexcept {

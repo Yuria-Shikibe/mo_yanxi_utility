@@ -308,6 +308,19 @@ export
 template <typename T>
 using tuple_to_variant_t = decltype(createVariantFromTuple_Impl<T>());
 
+export
+template <typename T>
+struct variant_to_tuple;
+
+template <typename ...T>
+struct variant_to_tuple<std::variant<T...>> : std::type_identity<std::tuple<T...>>{
+
+};
+
+export
+template <typename T>
+using variant_to_tuple_t = typename variant_to_tuple<T>::type;
+
 
 #pragma region UNSTABLE_OffsetHack
 

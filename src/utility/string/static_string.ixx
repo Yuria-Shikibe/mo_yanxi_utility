@@ -102,7 +102,7 @@ namespace mo_yanxi {
             return std::string_view(lhs) == std::string_view(rhs);
         }
 
-    	constexpr const char(& get_data() const noexcept)[N]{
+        constexpr auto get_data() const noexcept -> const char(&)[N]{
 	        return m_data;
         }
 
@@ -111,6 +111,149 @@ namespace mo_yanxi {
         size_type m_size{};
         char m_data[N]{};
     };
+
+export
+template <std::size_t Capacity, std::size_t Alignment = alignof(char)>
+class array_string {
+public:
+	static_assert(Capacity > 0);
+    static_assert(std::has_single_bit(Alignment), "Alignment must be a power of 2");
+
+    using value_type = char;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+    using pointer = char*;
+    using const_pointer = const char*;
+    using iterator = char*;
+    using const_iterator = const char*;
+
+    // =========================================================
+    // 构造函数
+    // =========================================================
+
+    /**
+     * @brief 默认构造：零初始化缓冲区 (空字符串)
+     */
+    constexpr array_string() noexcept = default;
+
+    /**
+     * @brief 从 std::string_view 构造，超出容量截断
+     */
+    constexpr array_string(std::string_view sv) noexcept {
+        assign(sv);
+    }
+
+    /**
+     * @brief 从 C 风格字符串构造
+     */
+    constexpr array_string(const char* str) noexcept {
+        assign(std::string_view(str));
+    }
+
+	constexpr auto get_data() const noexcept -> const char(&)[Capacity]{
+		return m_data;
+    }
+
+
+    // =========================================================
+    // 赋值与核心逻辑
+    // =========================================================
+
+    constexpr void assign(std::string_view sv) noexcept {
+        // 计算本次需要复制的长度 (不存储到成员变量，仅作局部使用)
+        const size_type count = std::min(sv.size(), Capacity - 1);
+
+        if (count > 0) {
+            if consteval {
+                // 编译期：手动循环
+                for (size_type i = 0; i < count; ++i) {
+                    m_data[i] = sv[i];
+                }
+            } else {
+                // 运行时：memcpy
+                std::memcpy(m_data, sv.data(), count);
+            }
+        }
+
+        // 必须显式设置 Null 终止符，因为不再存储 size
+        // 后续逻辑完全依赖这个 \0 来判断结束
+        m_data[count] = '\0';
+    }
+
+    constexpr array_string& operator=(std::string_view sv) noexcept {
+        assign(sv);
+        return *this;
+    }
+
+    // =========================================================
+    // 观察器 (Observers)
+    // =========================================================
+
+    /**
+     * @brief 获取当前容量
+     */
+    [[nodiscard]] constexpr size_type capacity() const noexcept { return Capacity - 1; }
+
+    /**
+     * @brief 获取原始指针
+     */
+    [[nodiscard]] constexpr const_pointer data() const noexcept { return m_data; }
+    [[nodiscard]] constexpr const_pointer c_str() const noexcept { return m_data; }
+    [[nodiscard]] constexpr pointer data() noexcept { return m_data; }
+
+    /**
+     * @brief 计算字符串长度 (O(N) 复杂度)
+     * 依赖 std::string_view 的 constexpr 构造来寻找 \0
+     */
+    [[nodiscard]] constexpr size_type size() const noexcept {
+        return std::string_view(m_data).size();
+    }
+
+    [[nodiscard]] constexpr bool empty() const noexcept {
+        return m_data[0] == '\0';
+    }
+
+    // 隐式转换与视图
+    constexpr operator std::string_view() const noexcept {
+        return std::string_view(m_data); // 自动扫描 \0 计算长度
+    }
+
+    [[nodiscard]] constexpr std::string_view view() const noexcept {
+        return std::string_view(m_data);
+    }
+
+    // =========================================================
+    // 迭代器 (需动态计算 end)
+    // =========================================================
+
+    [[nodiscard]] constexpr iterator begin() noexcept { return m_data; }
+    [[nodiscard]] constexpr const_iterator begin() const noexcept { return m_data; }
+
+    // end() 需要遍历找到 \0
+    [[nodiscard]] constexpr iterator end() noexcept { return m_data + size(); }
+    [[nodiscard]] constexpr const_iterator end() const noexcept { return m_data + size(); }
+
+    // =========================================================
+    // 比较操作
+    // =========================================================
+
+    constexpr auto operator<=>(const array_string& other) const noexcept {
+        return view() <=> other.view();
+    }
+
+    constexpr auto operator<=>(std::string_view sv) const noexcept {
+        return view() <=> sv;
+    }
+
+    constexpr bool operator==(std::string_view sv) const noexcept {
+        return view() == sv;
+    }
+
+private:
+    // 仅存储数据，Capacity + 1 保证 '\0' 空间
+    // 默认初始化 {} 保证初始全为 0
+    alignas(Alignment) char m_data[Capacity]{};
+};
 }
 
 // --- 新增：标准库特化 (std::formatter 和 std::hash) ---

@@ -15,7 +15,7 @@ namespace mo_yanxi::ccur{
 	 * @warning ONLY SINGLE WRITER is permitted!
 	 */
 	export
-	struct atomic_shared_mutex{
+	struct atomic_shared_mtx{
 	private:
 		using counter_type = std::size_t;
 		static constexpr counter_type write_flag = std::numeric_limits<counter_type>::max();
@@ -94,19 +94,19 @@ namespace mo_yanxi::ccur{
 
 	export struct shared_lock{
 	private:
-		atomic_shared_mutex* mutex_{nullptr};
+		atomic_shared_mtx* mutex_{nullptr};
 
 	public:
 		shared_lock() noexcept = default;
 
 		// 构造时获取共享锁
-		explicit shared_lock(atomic_shared_mutex& mtx) noexcept
+		explicit shared_lock(atomic_shared_mtx& mtx) noexcept
 			: mutex_(&mtx){
 			mutex_->lock_shared();
 		}
 
 		// 领养锁 (假设当前线程已经持有锁)
-		shared_lock(atomic_shared_mutex& mtx, std::adopt_lock_t) noexcept
+		shared_lock(atomic_shared_mtx& mtx, std::adopt_lock_t) noexcept
 			: mutex_(&mtx){
 		}
 
