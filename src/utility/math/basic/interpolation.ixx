@@ -1,3 +1,7 @@
+module;
+
+#include <version>
+
 export module mo_yanxi.math.interpolation;
 
 import std;
@@ -317,8 +321,10 @@ namespace mo_yanxi::math::interp{
 	export
 	using general_func = std::function<float(float)>;
 
+#ifdef __cpp_lib_move_only_function
 	export
 	using general_func_move_only = std::move_only_function<float(float) const>;
+#endif
 
 	export
 	using no_state_interp_func = std::add_pointer_t<float(float) noexcept>;
