@@ -609,11 +609,11 @@ constexpr T sqrt(const T x) noexcept{
 		T curr;
 		if constexpr(std::same_as<T, float>){
 			auto i = std::bit_cast<std::int32_t>(x);
-			i = 0x5F375A86ui32 - (i >> 1);
+			i = 0x5F375A86u - (i >> 1);
 			curr = std::bit_cast<T>(i);
 		} else if constexpr(std::same_as<T, double>){
 			auto i = std::bit_cast<std::int64_t>(x);
-			i = 0x5FE6EB50C7B537A9ui64 - (i >> 1);
+			i = 0x5FE6EB50C7B537A9u - (i >> 1);
 			curr = std::bit_cast<T>(i);
 		} else{
 			curr = x / T(2);
