@@ -19,7 +19,7 @@ jobs:
       matrix:
         os: [
           windows-latest,
-          #          ubuntu-latest
+          ubuntu-latest
         ]
         toolchain: [ msvc, clang, gcc ]
         mode: [ debug, release ]
