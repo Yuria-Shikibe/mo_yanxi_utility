@@ -29,7 +29,7 @@ namespace mo_yanxi {
 	 * \brief Decide whether to use reference or value version of the given of the given template classes
 	 * \tparam T Value Type
 	 */
-	export template <typename T, size_t size>
+	export template <typename T, std::size_t size>
 	using conditional_pass_type = typename conditional_reference<
 		(size > sizeof(void*) * 2),
 		T
