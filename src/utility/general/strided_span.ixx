@@ -14,7 +14,7 @@ namespace mo_yanxi{
 		std::contiguous_iterator<It> && std::is_convertible_v<std::remove_reference_t<std::iter_reference_t<It>> (*)[], T (*)[]>;
 
 	template <class Se, class It>
-	concept Span_compatible_sentinel = std::sized_sentinel_for<Se, It> && !std::is_convertible_v<Se, size_t>;
+	concept Span_compatible_sentinel = std::sized_sentinel_for<Se, It> && !std::is_convertible_v<Se, std::size_t>;
 
 	export
 	enum span_stride : std::ptrdiff_t{
