@@ -144,7 +144,7 @@ private:
 	using self_type = std::unordered_map<Key, V, transparent::string_hasher, transparent::string_equal_to, Alloc>;
 
 public:
-	using self_type::unordered_map;
+	using std::unordered_map<Key, V, transparent::string_hasher, transparent::string_equal_to, Alloc>::unordered_map;
 
 	// 通用的 at
 	template <typename S, typename K>
