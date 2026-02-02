@@ -232,7 +232,7 @@ namespace mo_yanxi::math::interp::spec{
 	};
 
 
-	template <size_t bounces>
+	template <std::size_t bounces>
 	struct Bounce : BounceOut<bounces>{
 		[[nodiscard]] constexpr Bounce(const typename BounceOut<bounces>::Bounce& widths,
 		                               const typename BounceOut<bounces>::Bounce& heights)
@@ -258,7 +258,7 @@ namespace mo_yanxi::math::interp::spec{
 	};
 
 
-	template <size_t bounces>
+	template <std::size_t bounces>
 	struct BounceIn : BounceOut<bounces>{
 		[[nodiscard]] constexpr BounceIn(const typename BounceOut<bounces>::Bounce& widths,
 		                                 const typename BounceOut<bounces>::Bounce& heights)
