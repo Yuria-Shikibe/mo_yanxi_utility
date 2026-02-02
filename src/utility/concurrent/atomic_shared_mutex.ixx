@@ -1,4 +1,4 @@
-export module mo_yanxi.concurrent.atomic_shared_mutex;
+export module mo_yanxi.ccur.atomic_shared_mutex;
 
 import std;
 
