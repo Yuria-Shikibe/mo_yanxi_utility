@@ -33,7 +33,7 @@ namespace mo_yanxi::algo{
 		It begin,
 		Se sentinel,
 		Proj proj = {},
-		std::ranges::range_const_reference_t<Rng> empty = std::ranges::range_value_t<Rng>{},
+		const std::ranges::range_value_t<Rng>& empty = std::ranges::range_value_t<Rng>{},
 		Hash hash = {}
 		){
 
@@ -79,7 +79,7 @@ namespace mo_yanxi::algo{
 		Rng&& range,
 		SourceRng&& src,
 		Proj proj = {},
-		std::ranges::range_const_reference_t<Rng> empty = std::ranges::range_value_t<Rng>{},
+		const std::ranges::range_value_t<Rng>& empty = std::ranges::range_value_t<Rng>{},
 		Hash hash = {}){
 
 		algo::make_hash(
@@ -99,7 +99,7 @@ namespace mo_yanxi::algo{
 		std::ranges::random_access_range Rng,
 		std::indirectly_unary_invocable<std::ranges::iterator_t<Rng>> Proj = std::identity,
 		typename Hash = std::hash<std::remove_cvref_t<std::indirect_result_t<Proj, std::ranges::iterator_t<Rng>>>>,
-		std::predicate<std::ranges::range_const_reference_t<Rng>> EmptyCheck = always_false
+		std::predicate<const std::ranges::range_value_t<Rng>&> EmptyCheck = always_false
 	>
 	constexpr std::ranges::iterator_t<Rng> access_hash(
 		Rng&& range,

@@ -3,43 +3,6 @@ set_arch("x64")
 set_encodings("utf-8")
 set_project("mo_yanxi.utility")
 
--- local available_components = {
---     "algo",
---     "concurrent",
---     "container",
---     "deprecated",
---     "dim2",
---     "general",
---     "generic",
---     "io",
---     "math",
---     "pointer",
---     "string",
--- }
---
--- function mo_yanxi_define_options()
---     for _, name in ipairs(available_components) do
---         option("use_" .. name)
---             set_default(true) -- 默认是否开启，可根据需求改为 false
---             set_showmenu(true)
---             set_description("Enable " .. name .. " component")
---         option_end()
---     end
--- end
---
--- mo_yanxi_define_options()
---
--- function mo_yanxi_get_enabled_components()
---     local enabled = {}
---     for _, name in ipairs(available_components) do
---         if has_config("use_" .. name) then
---             table.insert(enabled, name)
---         end
---     end
---     return enabled;
--- end
-
-
 option("add_legacy")
     set_default(false) -- 默认是否开启，可根据需求改为 false
     set_showmenu(true)
@@ -76,29 +39,6 @@ on_load(function (target)
     end
 end)
 rule_end()
-
-
-function mo_yanxi_utility_use_comp(component_names)
-    local include_root = path.join("src", "utility")
-
-
-
-    if(component_names == nil or #component_names == 0) then
-        add_files(path.join(include_root, "**.ixx"), {public = true})
-        return
-    end
-
-    add_files(path.join(include_root, "general", "*.ixx"))
-
-    for _, name in ipairs(component_names) do
-        local dir = path.join(include_root, name);
-        if(os.isdir(dir)) then
-            add_files(path.join(dir, "**.ixx"), {public = true})
-        end
-    end
-end
-
-
 
 target("mo_yanxi.utility")
     set_kind("object")
