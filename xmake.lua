@@ -15,7 +15,16 @@ end
 
 includes("config.lua");
 
-mo_yanxi_utility_import_default("mo_yanxi.utility")
+target("mo_yanxi.utility")
+    set_kind("object")
+    set_languages("c++23")
+    set_policy("build.c++.modules", true)
+
+    set_warnings("all")
+    set_warnings("pedantic")
+target_end()
+
+mo_yanxi_utility_add_comp_to("mo_yanxi.utility")
 
 target("mo_yanxi.utility.test")
     set_kind("binary")
