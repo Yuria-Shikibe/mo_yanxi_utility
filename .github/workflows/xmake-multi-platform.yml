@@ -65,6 +65,10 @@ jobs:
           sudo ./llvm.sh ${{ env.LLVM_VER }}
           sudo apt-get install -y libc++-${{ env.LLVM_VER }}-dev libc++abi-${{ env.LLVM_VER }}-dev clang-tools-${{ env.LLVM_VER }} libunwind-${{ env.LLVM_VER }}-dev
           echo "/usr/lib/llvm-${{ env.LLVM_VER }}/bin" >> $GITHUB_PATH
+          sudo update-alternatives --install /usr/bin/cc cc /usr/bin/clang 100
+          sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++ 100
+  
+          clang --version
 
       - name: Build ${{ matrix.mode }}
         shell: bash
