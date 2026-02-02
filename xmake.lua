@@ -9,6 +9,10 @@ option("add_legacy")
     set_description("add legacy component")
 option_end()
 
+option("add_latest")
+    set_default(true)
+option_end()
+
 if is_plat("windows") then
     if is_mode("debug") then
         set_runtimes("MDd")
@@ -60,6 +64,10 @@ target("mo_yanxi.utility")
 
     if has_config("add_legacy") then
         add_files("./src/legacy/**.ixx", {public = true})
+    end
+    
+    if has_config("add_latest") then
+        add_files("./src/latest/**.ixx", {public = true})
     end
 target_end()
 
