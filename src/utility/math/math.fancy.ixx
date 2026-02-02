@@ -12,7 +12,7 @@ namespace mo_yanxi::math{
 	template <std::input_iterator It, std::sentinel_for<It> Se,
 		std::invocable<std::iter_difference_t<It>, float, float> LConsumer,
 		std::invocable<std::iter_difference_t<It>, float, float> RConsumer>
-	requires (std::convertible_to<std::iter_const_reference_t<It>, float>)
+	requires (std::convertible_to<std::iter_reference_t<It>, float>)
 	constexpr void get_chunked_progress_region(It it, Se se, float cur, LConsumer lc, RConsumer rc){
 		float last{};
 		std::iter_difference_t<It> idx{};
