@@ -70,33 +70,7 @@ namespace mo_yanxi {
         }
 
         lru_cache(const lru_cache& other) {
-            // 1. 复制元数据
-            head_ = other.head_;
-            tail_ = other.tail_;
-            free_head_ = other.free_head_;
-            size_ = other.size_;
-            links_ = other.links_; // link_node 是 trivial 的，可以直接复制
-
-            // 2. 深度复制有效元素 (基于 active_mask_)
-            for (size_type i = 0; i < N; ++i) {
-                if (other.active_mask_.test(i)) {
-                    // 构造 Key
-                    std::construct_at(get_raw_key_ptr(i), *other.get_key_ptr(i));
-
-                    try {
-                        // 构造 Value
-                        std::construct_at(get_raw_val_ptr(i), *other.get_val_ptr(i));
-                    } catch (...) {
-                        // 强异常保证：如果 Value 构造失败，需销毁已构造的 Key
-                        std::destroy_at(get_key_ptr(i));
-                        // 此时 active_mask_ 尚未设置该位，析构函数不会重复销毁
-                        throw;
-                    }
-
-                    // 构造成功后标记为活跃
-                    active_mask_.set(i);
-                }
-            }
+            copy_from(other);
         }
 
         /**
@@ -143,28 +117,8 @@ namespace mo_yanxi {
                 // 1. 清理当前对象资源
                 this->clear_resources();
 
-                // 2. 调用复制构造的逻辑 (placement new 自身)
-                // 这种写法虽然 hacky 但避免了逻辑重复。更标准的做法是提取 verify_copy 函数。
-                // 这里为了简洁，展开逻辑：
-
-                head_ = other.head_;
-                tail_ = other.tail_;
-                free_head_ = other.free_head_;
-                size_ = other.size_;
-                links_ = other.links_;
-
-                for (size_type i = 0; i < N; ++i) {
-                    if (other.active_mask_.test(i)) {
-                        std::construct_at(get_raw_key_ptr(i), *other.get_key_ptr(i));
-                        try {
-                            std::construct_at(get_raw_val_ptr(i), *other.get_val_ptr(i));
-                        } catch (...) {
-                            std::destroy_at(get_key_ptr(i));
-                            throw;
-                        }
-                        active_mask_.set(i);
-                    }
-                }
+                // 2. 调用复制逻辑
+                this->copy_from(other);
             }
             return *this;
         }
@@ -206,6 +160,36 @@ namespace mo_yanxi {
         }
 
     private:
+        void copy_from(const lru_cache& other) {
+            // 1. 复制元数据
+            head_ = other.head_;
+            tail_ = other.tail_;
+            free_head_ = other.free_head_;
+            size_ = other.size_;
+            links_ = other.links_; // link_node 是 trivial 的，可以直接复制
+
+            // 2. 深度复制有效元素 (基于 active_mask_)
+            for (size_type i = 0; i < N; ++i) {
+                if (other.active_mask_.test(i)) {
+                    // 构造 Key
+                    std::construct_at(get_raw_key_ptr(i), *other.get_key_ptr(i));
+
+                    try {
+                        // 构造 Value
+                        std::construct_at(get_raw_val_ptr(i), *other.get_val_ptr(i));
+                    } catch (...) {
+                        // 强异常保证：如果 Value 构造失败，需销毁已构造的 Key
+                        std::destroy_at(get_key_ptr(i));
+                        // 此时 active_mask_ 尚未设置该位，析构函数不会重复销毁
+                        throw;
+                    }
+
+                    // 构造成功后标记为活跃
+                    active_mask_.set(i);
+                }
+            }
+        }
+
         // 辅助函数：清理当前所有资源（用于赋值前或析构）
         void clear_resources() noexcept {
             if constexpr (!std::is_trivially_destructible_v<K> || !std::is_trivially_destructible_v<V>) {
