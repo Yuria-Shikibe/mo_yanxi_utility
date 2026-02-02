@@ -85,13 +85,13 @@ jobs:
           
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]]; then
              clang --version
-             EXTRA_FLAGS="--sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags='-stdlib=libc++' --ldflags='-stdlib=libc++'" --add_latest=false
+             EXTRA_FLAGS="--sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags='-stdlib=libc++' --ldflags='-stdlib=libc++' --add_latest=false" 
           else
              EXTRA_FLAGS=""
           fi
           
           echo "Configuring with: $XMAKE_FLAGS $EXTRA_FLAGS"
-          xmake f -c $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS -y -cv
+          xmake f -cyv $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS 
           
           xmake -b -y ${{ env.TARGET_NAME }}
 
