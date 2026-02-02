@@ -2,6 +2,7 @@ module;
 
 #include "mo_yanxi/adapted_attributes.hpp"
 #include <cassert>
+#include <version>
 
 export module mo_yanxi.dim2.tile;
 
@@ -333,7 +334,7 @@ export namespace mo_yanxi::dim2{
 			return std::span<value_type>{data() + rowIndex * width(), data() + (rowIndex + 1) * width()};
 		}
 
-
+#ifdef __cpp_lib_ranges_stride
 		[[nodiscard]] constexpr auto column_at(const size_type columnIndex) const noexcept{
 			assert(columnIndex < width());
 
@@ -345,6 +346,42 @@ export namespace mo_yanxi::dim2{
 
 			return std::span<value_type>{data() + columnIndex, size() - width() + 1} | std::views::stride(width());
 		}
+
+		[[nodiscard]] decltype(auto) sub_tile_adaptor_view(size_type x, size_type y, size_type w, size_type h) const noexcept{
+			assert(x + w <= width());
+			assert(y + h <= height());
+
+			return
+				std::span<const value_type>{data() + this->to_index(x, y), h * width()} | std::views::slide(w) |
+				std::views::stride(width());
+		}
+
+		[[nodiscard]] decltype(auto) sub_tile_adaptor_view(size_type x, size_type y, size_type w, size_type h) noexcept{
+			assert(x + w <= width());
+			assert(y + h <= height());
+
+			return
+				std::span<value_type>{data() + this->to_index(x, y), h * width()} | std::views::slide(w) |
+				std::views::stride(width());
+		}
+
+
+		[[nodiscard]] decltype(auto) sub_tile_adaptor_view(
+			const position_acquireable<size_type> auto& src,
+			const position_acquireable<size_type> auto& extent) const noexcept{
+			return
+				this->sub_tile_adaptor_view(src.x, src.y, extent.x, extent.y);
+		}
+
+		[[nodiscard]] decltype(auto) sub_tile_adaptor_view(
+			const position_acquireable<size_type> auto& src,
+			const position_acquireable<size_type> auto& extent) noexcept{
+
+			return
+				this->sub_tile_adaptor_view(src.x, src.y, extent.x, extent.y);
+		}
+
+#endif
 
 		[[nodiscard]] constexpr size_type width() const noexcept{
 			return static_cast<const Impl&>(*this).width();
@@ -422,24 +459,6 @@ export namespace mo_yanxi::dim2{
 			}
 		}
 
-		[[nodiscard]] decltype(auto) sub_tile_adaptor_view(size_type x, size_type y, size_type w, size_type h) const noexcept{
-			assert(x + w <= width());
-			assert(y + h <= height());
-
-			return
-				std::span<const value_type>{data() + this->to_index(x, y), h * width()} | std::views::slide(w) |
-				std::views::stride(width());
-		}
-
-		[[nodiscard]] decltype(auto) sub_tile_adaptor_view(size_type x, size_type y, size_type w, size_type h) noexcept{
-			assert(x + w <= width());
-			assert(y + h <= height());
-
-			return
-				std::span<value_type>{data() + this->to_index(x, y), h * width()} | std::views::slide(w) |
-				std::views::stride(width());
-		}
-
 		[[nodiscard]] decltype(auto) sub_tile_adaptor(size_type x, size_type y, size_type w, size_type h) const{
 			assert(x + w <= width());
 			assert(y + h <= height());
@@ -455,21 +474,6 @@ export namespace mo_yanxi::dim2{
 			}
 
 			return tile_adaptor;
-		}
-
-		[[nodiscard]] decltype(auto) sub_tile_adaptor_view(
-			const position_acquireable<size_type> auto& src,
-			const position_acquireable<size_type> auto& extent) const noexcept{
-			return
-				this->sub_tile_adaptor_view(src.x, src.y, extent.x, extent.y);
-		}
-
-		[[nodiscard]] decltype(auto) sub_tile_adaptor_view(
-			const position_acquireable<size_type> auto& src,
-			const position_acquireable<size_type> auto& extent) noexcept{
-
-			return
-				this->sub_tile_adaptor_view(src.x, src.y, extent.x, extent.y);
 		}
 
 		[[nodiscard]] decltype(auto) sub_tile_adaptor(
