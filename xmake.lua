@@ -1,7 +1,7 @@
 add_rules("mode.debug", "mode.release")
 set_arch("x64")
 set_encodings("utf-8")
-set_project("mo_yanxi.utility")
+set_project("mo_yanxi.react_flow")
 
 if is_plat("windows") then
     if is_mode("debug") then
