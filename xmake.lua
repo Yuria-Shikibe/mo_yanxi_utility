@@ -59,7 +59,7 @@ target("mo_yanxi.utility")
     end
 
     add_includedirs("include", {public = true})
-    add_installfiles("include/**.hpp", {prefixdir = "include"})
+    add_installfiles("include/(**.hpp)", {prefixdir = "include"})
 
     add_files("./src/utility/**.ixx", {public = true})
 
