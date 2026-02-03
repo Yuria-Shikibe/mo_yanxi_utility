@@ -81,7 +81,7 @@ namespace mo_yanxi{
 
 		template<typename... Args>
 			requires (std::constructible_from<T, Args...>)
-		T& emplace(Args&& ...args) noexcept(std::construct_at(nullptr, std::forward<Args>(args)...)){
+		T& emplace(Args&& ...args) noexcept(std::is_nothrow_constructible_v<T, Args...>){
 			auto where = push_uninitialized();
 
 			auto& rst = *std::construct_at(where, std::forward<Args>(args)...);

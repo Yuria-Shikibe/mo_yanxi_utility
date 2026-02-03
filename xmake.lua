@@ -92,8 +92,8 @@ target("mo_yanxi.utility.test")
     set_warnings("all")
     set_warnings("pedantic")
     add_deps("mo_yanxi.utility")
+    add_packages("gtest")
 
-    add_files("src/**.ixx", {public = true})
     add_files("test/**.cpp")
 target_end()
 
