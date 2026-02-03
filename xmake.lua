@@ -3,13 +3,13 @@ set_arch("x64")
 set_encodings("utf-8")
 set_project("mo_yanxi.utility")
 
-option("add_legacy")
-    set_default(false) -- 默认是否开启，可根据需求改为 false
+option("add_legacy") --Used for libc++/clang, missing some of c++23 facilities
+    set_default(false)
     set_showmenu(true)
     set_description("add legacy component")
 option_end()
 
-option("add_latest")
+option("add_latest") --Used for libc++/clang, missing some of c++23 facilities
     set_default(true)
 option_end()
 
@@ -59,13 +59,14 @@ target("mo_yanxi.utility")
     end
 
     add_includedirs("include", {public = true})
+    add_installfiles("include/**.hpp", {prefixdir = "include"})
 
     add_files("./src/utility/**.ixx", {public = true})
 
     if has_config("add_legacy") then
         add_files("./src/legacy/**.ixx", {public = true})
     end
-    
+
     if has_config("add_latest") then
         add_files("./src/latest/**.ixx", {public = true})
     end
