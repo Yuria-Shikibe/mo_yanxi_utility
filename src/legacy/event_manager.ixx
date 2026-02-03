@@ -80,14 +80,13 @@ namespace mo_yanxi::events{
 	};
 
 	struct event_registry{
-		[[nodiscard]] event_registry() noexcept(!MO_YANXI_UTILITY_ENABLE_CHECK) = default;
+		[[nodiscard]] event_registry() noexcept = default;
 
 #if MO_YANXI_UTILITY_ENABLE_CHECK
 		std::set<std::type_index> registered{};
 #endif
 
 		[[nodiscard]] event_registry(const std::initializer_list<std::type_index> registeredList)
-			noexcept(!MO_YANXI_UTILITY_ENABLE_CHECK)
 #if MO_YANXI_UTILITY_ENABLE_CHECK
 			: registered(registeredList)
 #endif

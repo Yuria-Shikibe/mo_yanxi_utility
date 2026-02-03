@@ -44,6 +44,16 @@ on_load(function (target)
 end)
 rule_end()
 
+add_requires("gtest")
+
+-- TODO make this works for gcc and libstdc++, currently this is used for remote action only
+
+if is_plat("linux") then
+    add_requireconfs("*", {configs = {cxflags = "-stdlib=libc++", ldflags = {"-stdlib=libc++", "-lc++abi", "-lunwind"}}})
+    add_cxflags("-stdlib=libc++")
+    add_ldflags("-stdlib=libc++", "-lc++abi", "-lunwind")
+end
+
 target("mo_yanxi.utility")
     set_kind("object")
     set_languages("c++23")
@@ -53,9 +63,9 @@ target("mo_yanxi.utility")
     set_warnings("pedantic")
 
     if is_mode("debug") then
-        add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=1")
+        add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=1", {public = true})
     else
-        add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=0")
+        add_defines("MO_YANXI_UTILITY_ENABLE_CHECK=0", {public = true})
     end
 
     add_includedirs("include", {public = true})
@@ -72,6 +82,7 @@ target("mo_yanxi.utility")
     end
 target_end()
 
+
 target("mo_yanxi.utility.test")
     set_kind("binary")
     set_extension(".exe")
@@ -80,9 +91,10 @@ target("mo_yanxi.utility.test")
 
     set_warnings("all")
     set_warnings("pedantic")
-
-    add_files("test/**.cpp")
     add_deps("mo_yanxi.utility")
+
+    add_files("src/**.ixx", {public = true})
+    add_files("test/**.cpp")
 target_end()
 
 includes("xmake2cmake.lua")
