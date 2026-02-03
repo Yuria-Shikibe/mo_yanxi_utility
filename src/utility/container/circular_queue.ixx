@@ -395,27 +395,31 @@ namespace mo_yanxi{
 
 		template <std::invocable<size_type, value_type&> Fn>
 		constexpr void each(Fn fn) noexcept(std::is_nothrow_invocable_v<Fn, size_type, value_type&>){
-			size_type idx = head;
 			size_type count{};
-			while(count != size_){
-				std::invoke(fn, count++, data_[idx]);
+			const size_type first_part_len = std::min(size_, capacity_ - head);
 
-				if(++idx == capacity_){
-					idx = 0;
-				}
+			for(size_type i = 0; i < first_part_len; ++i){
+				std::invoke(fn, count++, data_[head + i]);
+			}
+
+			const size_type second_part_len = size_ - first_part_len;
+			for(size_type i = 0; i < second_part_len; ++i){
+				std::invoke(fn, count++, data_[i]);
 			}
 		}
 
 		template <std::invocable<size_type, const value_type&> Fn>
 		constexpr void each(Fn fn) const noexcept(std::is_nothrow_invocable_v<Fn, size_type, const value_type&>){
-			size_type idx = head;
 			size_type count{};
-			while(count != size_){
-				std::invoke(fn, count++, data_[idx]);
+			const size_type first_part_len = std::min(size_, capacity_ - head);
 
-				if(++idx == capacity_){
-					idx = 0;
-				}
+			for(size_type i = 0; i < first_part_len; ++i){
+				std::invoke(fn, count++, data_[head + i]);
+			}
+
+			const size_type second_part_len = size_ - first_part_len;
+			for(size_type i = 0; i < second_part_len; ++i){
+				std::invoke(fn, count++, data_[i]);
 			}
 		}
 	};
