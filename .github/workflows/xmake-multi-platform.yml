@@ -1,4 +1,4 @@
-name: Xmake Build
+name: Build And Test
 
 env:
   TARGET_NAME: mo_yanxi.utility.test
@@ -96,4 +96,4 @@ jobs:
           xmake -b -y ${{ env.TARGET_NAME }}
 
       - name: Test
-        run: xmake run mo_yanxi.utility.test
+        run: xmake run ${{ env.TARGET_NAME }}

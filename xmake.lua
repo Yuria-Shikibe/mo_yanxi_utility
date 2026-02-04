@@ -95,6 +95,8 @@ target("mo_yanxi.utility.test")
     add_packages("gtest")
 
     add_files("test/**.cpp")
+
+    set_installable(false)
 target_end()
 
 includes("xmake2cmake.lua")
