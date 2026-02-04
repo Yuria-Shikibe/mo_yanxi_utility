@@ -89,7 +89,7 @@ namespace mo_yanxi::algo{
 	}
 
 	struct always_false{
-		static bool operator()(auto&&) noexcept{
+		constexpr bool operator()(auto&&) const noexcept{
 			return false;
 		}
 	};

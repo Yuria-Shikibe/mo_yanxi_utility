@@ -233,7 +233,7 @@ namespace mo_yanxi::algo{
 	export
 	template <bool replace = false, std::ranges::random_access_range Rng, typename Ty, typename Proj = std::identity>
 	[[nodiscard]] constexpr auto remove_unstable(Rng& range, const Ty& val, const Proj porj = {}){
-		return std::ranges::borrowed_subrange_t<Rng>{
+		return std::ranges::borrowed_subrange_t<Rng&>{
 				algo::remove_unstable_impl<replace>(std::ranges::begin(range), std::ranges::end(range), val, porj),
 				std::ranges::end(range)
 			};
@@ -253,7 +253,7 @@ namespace mo_yanxi::algo{
 	template <bool replace = false, std::ranges::random_access_range Rng, typename Proj = std::identity,
 	          std::indirect_unary_predicate<std::projected<std::ranges::iterator_t<Rng>, Proj>> Pred>
 	[[nodiscard]] constexpr auto remove_if_unstable(Rng& range, Pred pred, const Proj porj = {}){
-		return std::ranges::borrowed_subrange_t<Rng>{
+		return std::ranges::borrowed_subrange_t<Rng&>{
 				algo::remove_if_unstable_impl<replace>(std::ranges::begin(range), std::ranges::end(range), pred,
 					porj),
 				std::ranges::end(range)

@@ -1,7 +1,7 @@
 name: Xmake Build
 
 env:
-  TARGET_NAME: mo_yanxi.utility
+  TARGET_NAME: mo_yanxi.utility.test
   LLVM_VER: 21
 
 on:
@@ -91,9 +91,9 @@ jobs:
           fi
           
           echo "Configuring with: $XMAKE_FLAGS $EXTRA_FLAGS"
-          xmake f -cyv $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS 
+          eval xmake f -cyv $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS
           
           xmake -b -y ${{ env.TARGET_NAME }}
 
       - name: Test
-        run: xmake test
+        run: xmake run mo_yanxi.utility.test

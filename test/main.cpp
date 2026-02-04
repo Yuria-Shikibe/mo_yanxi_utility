@@ -1,14 +1,6 @@
-#include <cstdio>
+#include <gtest/gtest.h>
 
-import std;
-import mo_yanxi.static_string;
-
-using namespace mo_yanxi;
-
-int main() {
-    constexpr static static_string<8> test{"off"};
-    constexpr auto idx1 = std::bit_cast<std::uint64_t>(test.get_data());
-    auto idx2 = std::bit_cast<std::uint64_t>(test.get_data());
-    auto c = idx1 == idx2;
-    return 0;
+int main(int argc, char **argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
