@@ -54,6 +54,10 @@ namespace mo_yanxi {
         using is_transparent = void;
     };
 
+    /**
+     * @brief is only valuable when iteration is the main job.
+     * bascially useless, dont use it
+     */
     export
     template <
         typename Key, typename Val, typename EmptyKey, auto emptyKey,
@@ -61,7 +65,7 @@ namespace mo_yanxi {
         typename KeyEqual = std::equal_to<Key>,
         std::invocable<const EmptyKey&> Convertor = std::identity,
         typename Allocator = std::allocator<std::pair<const Key, Val>>>
-    struct fixed_open_addr_hash_map {
+    [[deprecated("bad performance")]] struct fixed_open_addr_hash_map {
         using key_type = Key;
         using mapped_type = Val;
         using hasher = Hash;
@@ -645,7 +649,7 @@ namespace mo_yanxi {
         template <typename K>
         constexpr std::size_t key_to_idx(const K& key, size_type mask) const noexcept(noexcept(Hasher(key))){
             static_assert(isHasherValid<K>, "invalid hasher");
-            return hash_mixer::mix(Hasher(key)) & mask;
+            return Hasher(key) & mask;
         }
 
     private:

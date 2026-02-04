@@ -45,6 +45,7 @@ end)
 rule_end()
 
 add_requires("gtest")
+add_requires("benchmark")
 
 -- TODO make this works for gcc and libstdc++, currently this is used for remote action only
 
@@ -87,6 +88,8 @@ target("mo_yanxi.utility.test")
     set_kind("binary")
     set_extension(".exe")
     set_languages("c++23")
+    set_optimize("fastest")
+
     set_policy("build.c++.modules", true)
 
     set_warnings("all")
@@ -95,6 +98,25 @@ target("mo_yanxi.utility.test")
     add_packages("gtest")
 
     add_files("test/**.cpp")
+
+    -- set_installable(false)
+target_end()
+
+
+target("mo_yanxi.utility.benchmark")
+    set_kind("binary")
+    set_extension(".exe")
+    set_languages("c++23")
+    set_optimize("fastest")
+
+    set_policy("build.c++.modules", true)
+
+    set_warnings("all")
+    set_warnings("pedantic")
+    add_deps("mo_yanxi.utility")
+    add_packages("benchmark")
+
+    add_files("benchmark/**.cpp")
 
     -- set_installable(false)
 target_end()
