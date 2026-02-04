@@ -18,10 +18,10 @@ namespace mo_yanxi {
     private:
         T inner_pair;
     public:
-        [[nodiscard]] explicit arrow_proxy(const T& inner_pair)
+        [[nodiscard]] constexpr explicit arrow_proxy(const T& inner_pair)
             : inner_pair(inner_pair) {}
 
-        [[nodiscard]] explicit arrow_proxy(T&& inner_pair)
+        [[nodiscard]] constexpr explicit arrow_proxy(T&& inner_pair)
             : inner_pair(std::move(inner_pair)) {}
 
         constexpr const T* operator->() const noexcept {
@@ -34,10 +34,8 @@ namespace mo_yanxi {
         typename T::is_transparent;
     };
 
-    // 优化 1: 引入 Hash Mixer，解决 Power-of-2 哈希表的低位冲突问题
     struct hash_mixer {
         [[nodiscard]] static constexpr std::size_t mix(std::size_t x) noexcept {
-            // MurmurHash3 fmix64 风格的混淆器
             x ^= x >> 33;
             x *= 0xff51afd7ed558ccdULL;
             x ^= x >> 33;
@@ -51,7 +49,6 @@ namespace mo_yanxi {
         template <typename T>
             requires (std::is_pointer_v<T>)
         static constexpr std::size_t operator()(T ptr) noexcept {
-            // 简单的转换，依赖外部 Mixer 进行混淆
             return reinterpret_cast<std::size_t>(ptr);
         }
         using is_transparent = void;
@@ -63,20 +60,20 @@ namespace mo_yanxi {
         typename Hash = std::hash<Key>,
         typename KeyEqual = std::equal_to<Key>,
         std::invocable<const EmptyKey&> Convertor = std::identity,
-        typename Allocator = std::allocator<std::pair<Key, Val>>>
+        typename Allocator = std::allocator<std::pair<const Key, Val>>>
     struct fixed_open_addr_hash_map {
         using key_type = Key;
         using mapped_type = Val;
         using hasher = Hash;
         using key_equal = KeyEqual;
 
-        // 优化 2: 定义最大负载因子 (0.75 这里的实现是 3/4)
         static constexpr double MAX_LOAD_FACTOR = 0.75;
 
     private:
         template <typename K>
         static constexpr bool isHasherValid = (std::same_as<K, key_type> || Transparent<hasher>) && std::is_invocable_r_v<
             std::size_t, hasher, const K&>;
+
         template <typename K>
         static constexpr bool isEqualerValid = std::same_as<K, key_type> || Transparent<key_equal>;
 
@@ -100,84 +97,88 @@ namespace mo_yanxi {
             }
         }
 
-        struct mapped_buffer {
-            static constexpr std::size_t mapped_type_size = sizeof(mapped_type);
-            static constexpr std::size_t mapped_type_align = alignof(mapped_type);
-            alignas(mapped_type_align) std::array<std::byte, mapped_type_size> buffer;
-            [[nodiscard]] constexpr const mapped_type* data() const noexcept {
-                return reinterpret_cast<const mapped_type*>(buffer.data());
-            }
-
-            [[nodiscard]] constexpr mapped_type* data() noexcept {
-                return reinterpret_cast<mapped_type*>(buffer.data());
-            }
-        };
+        // 修改 1: 移除 mapped_buffer，直接在 kv_storage 中使用 union
 
         struct kv_storage {
             key_type key{};
-            ADAPTED_NO_UNIQUE_ADDRESS mapped_buffer value;
+
+            // 修改 2: 使用 Union 提供即地存储，支持 constexpr
+            union storage_t {
+                mapped_type val;
+
+                // 默认构造时激活 dummy，不触发生存期
+                constexpr storage_t() {}
+                // 析构函数为空，实际生命周期由 kv_storage 手动管理
+                constexpr ~storage_t() {}
+            };
+
+            ADAPTED_NO_UNIQUE_ADDRESS storage_t value;
 
             [[nodiscard]] constexpr explicit(false) kv_storage(const key_type key)
-                : key(key) {}
+                : key(key), value() {}
 
             template <typename T>
                 requires std::constructible_from<key_type, T>
             [[nodiscard]] constexpr explicit(false) kv_storage(T&& key)
-                : key(std::forward<T>(key)) {}
+                : key(std::forward<T>(key)), value() {}
 
-            [[nodiscard]] constexpr kv_storage() : key(getStaticEmptyKey()) {}
+            [[nodiscard]] constexpr kv_storage() : key(getStaticEmptyKey()), value() {}
 
             constexpr explicit operator bool() const noexcept {
                 return !fixed_open_addr_hash_map::is_empty_key(key);
             }
 
-            constexpr ~kv_storage() {
+            constexpr ~kv_storage() requires(!std::is_trivially_destructible_v<mapped_type>) {
                 try_destroy();
             }
+
+            constexpr ~kv_storage() requires(std::is_trivially_destructible_v<mapped_type>) = default;
 
             constexpr void try_destroy() noexcept {
                 if constexpr (std::is_trivially_destructible_v<mapped_type>) return;
                 if (!fixed_open_addr_hash_map::is_empty_key(key)) {
-                    std::destroy_at(value.data());
+                    // 修改 3: 直接 destroy union 成员
+                    std::destroy_at(&value.val);
                 }
             }
 
             constexpr void destroy() noexcept {
                 if constexpr (std::is_trivially_destructible_v<mapped_type>) return;
-                std::destroy_at(value.data());
+                std::destroy_at(&value.val);
             }
 
             template <typename ...Args>
                 requires (std::constructible_from<mapped_type, Args...>)
             constexpr void emplace(Args&& ...args) noexcept(std::is_nothrow_constructible_v<mapped_type, Args...>) {
-                std::construct_at(value.data(), std::forward<Args>(args)...);
+                // 修改 4: 在 union 成员地址上构造，这在 C++20 constexpr 中是合法的
+                // 并将 val 标记为 active member
+                std::construct_at(&value.val, std::forward<Args>(args)...);
             }
 
-            // Copy/Move 保持原样
-            kv_storage(const kv_storage& other)
-                : key{other.key} {
+            constexpr kv_storage(const kv_storage& other)
+                : key{other.key} { // value 默认初始化为 dummy
                 if(*this){
                     if constexpr (std::is_trivially_copy_constructible_v<mapped_type>){
-                        value = other.value;
+                        value = other.value; // Trivial union copy is safe
                     }else{
-                        this->emplace(*other.value.data());
+                        this->emplace(other.value.val);
                     }
                 }
             }
 
-            kv_storage(kv_storage&& other) noexcept
+            constexpr kv_storage(kv_storage&& other) noexcept
                 : key{std::exchange(other.key, getStaticEmptyKey())} {
                 if(*this){
                     if constexpr (std::is_trivially_move_constructible_v<mapped_type>){
                         value = other.value;
                     }else{
-                        this->emplace(std::move(*other.value.data()));
+                        this->emplace(std::move(other.value.val));
                         other.destroy();
                     }
                 }
             }
 
-            kv_storage& operator=(const kv_storage& other) {
+            constexpr kv_storage& operator=(const kv_storage& other) {
                 if(this == &other) return *this;
                 try_destroy();
                 key = other.key;
@@ -185,13 +186,13 @@ namespace mo_yanxi {
                     if constexpr (std::is_trivially_copy_constructible_v<mapped_type>){
                         value = other.value;
                     }else{
-                        this->emplace(*other.value.data());
+                        this->emplace(other.value.val);
                     }
                 }
                 return *this;
             }
 
-            kv_storage& operator=(kv_storage&& other) noexcept {
+            constexpr kv_storage& operator=(kv_storage&& other) noexcept {
                 if(this == &other) return *this;
                 try_destroy();
                 key = std::exchange(other.key, getStaticEmptyKey());
@@ -199,7 +200,7 @@ namespace mo_yanxi {
                     if constexpr (std::is_trivially_move_constructible_v<mapped_type>){
                         value = other.value;
                     }else{
-                        this->emplace(std::move(*other.value.data()));
+                        this->emplace(std::move(other.value.val));
                         other.destroy();
                     }
                 }
@@ -226,7 +227,7 @@ namespace mo_yanxi {
             using container_type = std::conditional_t<addConst, const fixed_open_addr_hash_map, fixed_open_addr_hash_map>;
             using base_iterator = decltype(std::ranges::begin(std::declval<container_type&>().buckets_));
             using iterator_category = std::forward_iterator_tag;
-            using iterator_concept = std::forward_iterator_tag; // C++20
+            using iterator_concept = std::forward_iterator_tag;
             using value_type = kv_storage;
             using difference_type = std::ptrdiff_t;
 
@@ -252,11 +253,12 @@ namespace mo_yanxi {
                 return itr;
             }
 
-            auto operator*() const noexcept {
+            constexpr auto operator*() const noexcept {
+                // 修改 5: 直接访问 union 成员 .val
                 if constexpr(addConst){
-                    return std::pair<const key_type&, const mapped_type&>{current->key, *current->value.data()};
+                    return std::pair<const key_type&, const mapped_type&>{current->key, current->value.val};
                 } else{
-                    return std::pair<const key_type&, mapped_type&>{current->key, *current->value.data()};
+                    return std::pair<const key_type&, mapped_type&>{current->key, current->value.val};
                 }
             }
 
@@ -276,13 +278,11 @@ namespace mo_yanxi {
         private:
             template <bool oAddConst>
             friend struct hm_iterator_static;
-
             template <bool oAddConst>
-            explicit(false) hm_iterator_static(const hm_iterator_static<oAddConst>& other)
+            constexpr explicit(false) hm_iterator_static(const hm_iterator_static<oAddConst>& other)
                 : current(other.current), sentinel(other.sentinel){}
 
             constexpr void advance_past_empty() noexcept {
-                // 优化 3: 使用 sentinel 检查在前
                 while(current != sentinel && fixed_open_addr_hash_map::is_empty_key(current->key)){
                      ++current;
                 }
@@ -312,8 +312,7 @@ namespace mo_yanxi {
             const allocator_type& alloc = allocator_type{})
         : buckets_(alloc){
             size_type pot_count = std::bit_ceil(bucket_count);
-            if (pot_count < 4) pot_count = 4; // 至少4个，防止太小导致的高冲突
-
+            if (pot_count < 4) pot_count = 4;
             buckets_resize_init(pot_count);
         }
 
@@ -400,7 +399,9 @@ namespace mo_yanxi {
         }
 
         [[nodiscard]] constexpr size_type count(const key_type& key) const noexcept { return this->count_impl(key); }
-        template <typename K> [[nodiscard]] constexpr bool contains(const K& key) const noexcept { return this->find_impl(key) != end(); }
+
+        template <typename K>
+        [[nodiscard]] constexpr bool contains(const K& key) const noexcept { return this->find_impl(key) != end(); }
 
         template <typename... Args>
             requires (std::constructible_from<mapped_type, Args...> && std::is_move_assignable_v<mapped_type>)
@@ -413,7 +414,6 @@ namespace mo_yanxi {
             }
         }
 
-        // ... (省略部分 insert_or_assign/try_emplace 重载，逻辑同上，保持不变即可)
         template <typename... Args>
             requires (std::constructible_from<mapped_type, Args...> && std::is_move_assignable_v<mapped_type>)
         constexpr std::pair<iterator, bool> insert_or_assign(const key_type& key, Args&&... args){
@@ -449,24 +449,24 @@ namespace mo_yanxi {
         }
 
         [[nodiscard]] constexpr iterator find(const key_type& key) noexcept { return this->find_impl(key); }
-        template <typename K> [[nodiscard]] constexpr iterator find(const K& x) noexcept { return this->find_impl(x); }
+
+        template <typename K>
+        [[nodiscard]] constexpr iterator find(const K& x) noexcept { return this->find_impl(x); }
 
         [[nodiscard]] constexpr const_iterator find(const key_type& key) const noexcept { return this->find_impl(key); }
-        template <typename K> [[nodiscard]] constexpr const_iterator find(const K& x) const noexcept { return this->find_impl(x); }
+        template <typename K>
+        [[nodiscard]] constexpr const_iterator find(const K& x) const noexcept { return this->find_impl(x); }
 
-        // Bucket interface
         [[nodiscard]] constexpr size_type bucket_count() const noexcept { return buckets_.size(); }
         [[nodiscard]] constexpr size_type max_bucket_count() const noexcept { return buckets_.max_size(); }
 
-        // Hash policy
         constexpr void rehash(size_type count){
             count = std::max(count, size_type(size() / MAX_LOAD_FACTOR) + 1);
-            fixed_open_addr_hash_map other(std::move(*this), count); // count 会被构造函数 bit_ceil
+            fixed_open_addr_hash_map other(std::move(*this), count);
             std::swap(*this, other);
         }
 
         constexpr void reserve(const size_type count){
-            // 优化 4: 仅当需要容纳的 count 超过 max_load 时才 rehash
             if(count > max_load_count_){
                 rehash(count);
             }
@@ -478,7 +478,6 @@ namespace mo_yanxi {
             }
         }
 
-        // Observers
         [[nodiscard]] constexpr hasher hash_function() const noexcept { return Hasher; }
         [[nodiscard]] constexpr key_equal key_eq() const noexcept { return KeyEqualer; }
 
@@ -487,18 +486,16 @@ namespace mo_yanxi {
         }
 
     protected:
-        // 辅助：初始化 buckets 并计算 max_load_count_
         constexpr void buckets_resize_init(size_type pot_count) {
             if constexpr (std::is_copy_constructible_v<mapped_type>){
                 buckets_.resize(pot_count, key_type{empty_key()});
             }else{
-                buckets_.clear(); // 安全
+                buckets_.clear();
                 buckets_.reserve(pot_count);
                 for(size_type i = 0; i < pot_count; ++i){
                     buckets_.emplace_back(empty_key());
                 }
             }
-            // 更新缓存的负载阈值
             max_load_count_ = static_cast<size_type>(pot_count * MAX_LOAD_FACTOR);
         }
 
@@ -509,7 +506,6 @@ namespace mo_yanxi {
                 throw bad_hash_map_key{};
             }
 
-            // 预先检查是否需要扩容
             if (size_ + 1 > max_load_count_) [[unlikely]] {
                 rehash(size_ + 1);
             }
@@ -534,9 +530,7 @@ namespace mo_yanxi {
 
         constexpr void transfer_raw(const kv_storage& insert_kv){
             assert(!fixed_open_addr_hash_map::is_empty_key(insert_kv.key) && "empty key shouldn't be used");
-
             if (size_ + 1 > max_load_count_) [[unlikely]] {
-                // 这里可能需要特殊处理，因为是在构造中，但调用 rehash 安全
                 rehash(size_ + 1);
             }
 
@@ -555,8 +549,7 @@ namespace mo_yanxi {
 
         constexpr void transfer_raw(kv_storage&& insert_kv){
             assert(!fixed_open_addr_hash_map::is_empty_key(insert_kv.key) && "empty key shouldn't be used");
-
-             if (size_ + 1 > max_load_count_) [[unlikely]] {
+            if (size_ + 1 > max_load_count_) [[unlikely]] {
                 rehash(size_ + 1);
             }
 
@@ -589,10 +582,6 @@ namespace mo_yanxi {
                 }
 
                 std::size_t ideal = this->key_to_idx(next_kv.key, mask);
-
-                // 优化 5: 提取 diff 逻辑，虽然逻辑没变，但配合 bit mask 确保正确
-                // diff(ideal, bucket) < diff(ideal, next_idx)
-                // 意味着 bucket 在 next_idx 的理想位置和 next_idx 当前位置之间
                 if (((bucket - ideal) & mask) < ((next_idx - ideal) & mask)) {
                     buckets_[bucket] = std::move(next_kv);
                     bucket = next_idx;
@@ -603,8 +592,6 @@ namespace mo_yanxi {
 
         template <typename K>
         constexpr size_type erase_impl(const K& key) noexcept {
-            // 这里不能直接复用 find_impl，因为我们需要 non-const iterator
-            // 而 find_impl 返回类型取决于是否 const
             auto it = this->find(key);
             if(it != end()){
                 this->erase_impl(it);
@@ -655,22 +642,19 @@ namespace mo_yanxi {
             return const_cast<fixed_open_addr_hash_map*>(this)->find_impl(key);
         }
 
-        // 核心优化：Hash Mixing + Bit Mask
         template <typename K>
         constexpr std::size_t key_to_idx(const K& key, size_type mask) const noexcept(noexcept(Hasher(key))){
             static_assert(isHasherValid<K>, "invalid hasher");
-            // 在 Mask 之前进行 Mix，打散比特位
             return hash_mixer::mix(Hasher(key)) & mask;
         }
-
-        // probe_next 移除，直接内联 `(idx + 1) & mask` 更清晰
 
     private:
         buckets buckets_{};
         std::size_t size_{};
-        std::size_t max_load_count_{}; // 新增：缓存 resize 阈值
+        std::size_t max_load_count_{};
 
         static constexpr Convertor key_convertor{};
+
         static constexpr EmptyKey fixed_empty_key{[]() constexpr {
             if constexpr (std::same_as<std::in_place_t, decltype(emptyKey)>){
                 return EmptyKey();

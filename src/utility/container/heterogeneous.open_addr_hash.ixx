@@ -72,8 +72,8 @@ namespace mo_yanxi{
 			T,
 			type_index_hasher, type_index_equal_to__not_null>;
 
-	struct Prov{
-		FORCE_INLINE static std::string operator ()(std::nullptr_t) noexcept{
+	struct empty_str_trans{
+		FORCE_INLINE static constexpr std::string operator ()(std::nullptr_t) noexcept{
 			return std::string();
 		}
 	};
@@ -93,12 +93,12 @@ namespace mo_yanxi{
 	export
 	template <typename V>
 	class string_open_addr_hash_map : public
-		fixed_open_addr_hash_map<std::string, V, std::string_view, std::in_place, transparent::string_hasher, open_addr_equal/*, Prov*/>{
+		fixed_open_addr_hash_map<std::string, V, std::nullptr_t, nullptr, transparent::string_hasher, open_addr_equal, empty_str_trans>{
 	private:
-		using self_type = fixed_open_addr_hash_map<std::string, V, std::string_view, std::in_place, transparent::string_hasher, open_addr_equal/*, Prov*/>;
+		using self_type = fixed_open_addr_hash_map<std::string, V, std::nullptr_t, nullptr, transparent::string_hasher, open_addr_equal, empty_str_trans>;
 
 	public:
-		using fixed_open_addr_hash_map<std::string, V, std::string_view, std::in_place, transparent::string_hasher, open_addr_equal/*, Prov*/>::fixed_open_addr_hash_map;
+		using fixed_open_addr_hash_map<std::string, V, std::nullptr_t, nullptr, transparent::string_hasher, open_addr_equal, empty_str_trans>::fixed_open_addr_hash_map;
 
 		V& at(const std::string_view key){
 			return this->find(key)->second;

@@ -3,7 +3,8 @@ set_menu({
     usage = "xmake gencmake [options]",
     description = "生成 CMakeLists.txt 并注入 C++ 模块、标准配置及修复链接错误",
     options = {
-        {'s', "std", "kv", "23", "指定 C++ 标准版本 (例如: 17, 20, 23). 默认为 23."}
+        {'s', "std", "kv", "23", "指定 C++ 标准版本 (例如: 17, 20, 23). 默认为 23."},
+        {'m', "mode", "kv", "debug", "指定替换 target output directory 的模式名称 (例如: debug, release). 默认为 debug."}
     }
 })
 
@@ -12,11 +13,17 @@ on_run(function ()
 
     -- 1. 准备参数
     local std_ver = option.get("std") or "23"
+    local mode_name = option.get("mode") or "debug" -- 获取 mode 参数
+
     print("target c++ standard: C++" .. std_ver)
+    print("target output mode name: " .. mode_name)
 
     -- 2. 生成 CMakeLists.txt
+    -- 注意：这里保持使用 cmake_gen 进行生成，以确保生成的文本中包含确定的关键字供后续替换
     print("Executing: xmake project -k cmakelists ...")
+    os.exec("xmake f -y -m cmake_gen")
     os.exec("xmake project -k cmakelists")
+    os.exec("xmake f -y -m debug")
 
     local cmake_file = "CMakeLists.txt"
     if not os.isfile(cmake_file) then
@@ -75,34 +82,36 @@ endif()
     end
 
     -------------------------------------------------------
-    -- 修改 3: [新增] 自动修复 OBJECT 库链接错误
+    -- 修改 3: [修改] 直接删除 set_property
     -------------------------------------------------------
-    -- 问题描述: xmake 生成了错误的 set_property(... IMPORTED_OBJECTS target_name)
-    -- 导致 CMake 把 target 名字当成相对路径。
-    -- 解决方案: 识别这种模式，替换为直接的 target_link_libraries。
+    -- 之前的逻辑是尝试修复链接，现在根据需求直接移除 set_property 语句。
+    -- %s* 匹配空白，%b() 匹配括号及其内容
 
-    -- 模式匹配解释:
-    -- 1. add_library(temp_name OBJECT IMPORTED GLOBAL)
-    -- 2. set_property(TARGET temp_name PROPERTY IMPORTED_OBJECTS real_lib_name)
-    -- 3. target_link_libraries(main_target PRIVATE temp_name)
-    -- 注意: %s- 匹配零个或多个空白符（含换行），%b() 匹配括号内容不太适用这里因为要提取内容
-
-    local fix_pattern = 'add_library%((target_objectfiles_[%w_]+) OBJECT IMPORTED GLOBAL%)%s-' ..
-                        'set_property%(TARGET %1 PROPERTY IMPORTED_OBJECTS%s-([%w_%.]+)%s-%)%s-' ..
-                        'target_link_libraries%(([%w_%.]+)%s-PRIVATE %1%)'
-
-    -- 执行全局替换
-    local new_content, count = content:gsub(fix_pattern, function(temp_target, real_lib, main_target)
-        print(string.format("check: fixing link error for target '%s' -> linking '%s' directly", main_target, real_lib))
-        -- 生成正确的链接语句
-        return string.format("target_link_libraries(%s PRIVATE %s)", main_target, real_lib)
-    end)
+    local count
+    content, count = content:gsub("set_property%s*%b()%s*", "")
 
     if count > 0 then
-        content = new_content
-        print(string.format("success: fixed %d instance(s) of incorrect OBJECT library linking.", count))
+        print(string.format("success: removed %d set_property statement(s).", count))
     else
-        print("info: no incorrect OBJECT library linking patterns found (or pattern mismatch).")
+        print("info: no set_property statements found.")
+    end
+
+    -------------------------------------------------------
+    -- 修改 4: [新增] 替换 set_target_properties 中的输出目录
+    -------------------------------------------------------
+    -- 将 ".../cmake_gen" 替换为 ".../<mode>"
+    -- 这样可以修改 RUNTIME_OUTPUT_DIRECTORY 等属性
+    if mode_name ~= "cmake_gen" then
+        local replace_count
+        -- 匹配规则：以 /cmake_gen" 结尾的字符串
+        -- 这里的双引号是 CMake 语法的一部分，确保我们修改的是路径末尾
+        content, replace_count = content:gsub("/cmake_gen\"", "/" .. mode_name .. "\"")
+
+        if replace_count > 0 then
+            print(string.format("success: replaced output directory 'cmake_gen' with '%s' (%d occurrences).", mode_name, replace_count))
+        else
+            print("warning: 'cmake_gen' path not found in properties. Check xmake configuration.")
+        end
     end
 
     -- 3. 写回文件

@@ -7,7 +7,7 @@ export module mo_yanxi.history_stack;
 import std;
 
 namespace mo_yanxi{
-// using T = int;
+
 export
 template <typename T, typename Container = std::deque<T>>
 struct history_stack{
