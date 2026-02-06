@@ -21,6 +21,7 @@ namespace mo_yanxi {
     template <typename T>
     union slot_t {
         T value;
+        struct {} uninit_{};
 
         constexpr slot_t() noexcept {}
         constexpr ~slot_t() noexcept {} // 具体的析构由 lru_cache 控制
@@ -255,7 +256,7 @@ namespace mo_yanxi {
                 return nullptr;
             }
             this->move_to_head(idx);
-            return get_val_ptr(idx);
+            return this->get_val_ptr(idx);
         }
 
         [[nodiscard]] constexpr bool contains(const K& key) const {

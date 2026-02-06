@@ -65,7 +65,7 @@ namespace mo_yanxi {
         typename KeyEqual = std::equal_to<Key>,
         std::invocable<const EmptyKey&> Convertor = std::identity,
         typename Allocator = std::allocator<std::pair<const Key, Val>>>
-    [[deprecated("bad performance")]] struct fixed_open_addr_hash_map {
+    struct [[deprecated("bad performance")]] fixed_open_addr_hash_map {
         using key_type = Key;
         using mapped_type = Val;
         using hasher = Hash;
@@ -109,6 +109,7 @@ namespace mo_yanxi {
             // 修改 2: 使用 Union 提供即地存储，支持 constexpr
             union storage_t {
                 mapped_type val;
+                struct {} uninit_{};
 
                 // 默认构造时激活 dummy，不触发生存期
                 constexpr storage_t() {}
