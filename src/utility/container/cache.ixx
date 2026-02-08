@@ -1,20 +1,9 @@
 export module mo_yanxi.cache;
 
+import mo_yanxi.meta_programming;
 import std;
 
 namespace mo_yanxi {
-    template <unsigned long long N>
-    struct get_smallest_uint {
-        using type =
-            std::conditional_t<(N <= 0xFF), std::uint8_t,
-            std::conditional_t<(N <= 0xFFFF), std::uint16_t,
-            std::conditional_t<(N <= 0xFFFFFFFF), std::uint32_t,
-            std::uint64_t>>>;
-    };
-
-    template <unsigned long long N>
-    using smallest_uint_t = typename get_smallest_uint<N>::type;
-
     /**
      * @brief Union 槽位，避免默认构造，且支持 constexpr 访问
      */
