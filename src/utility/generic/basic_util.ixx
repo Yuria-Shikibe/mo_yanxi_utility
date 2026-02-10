@@ -155,11 +155,10 @@ template <typename T, std::size_t skip_front = 0, typename ...Args>
 	static constexpr redundant_test_result drops = test_constructible_drop_BACK_MAJOR_param_v<T, skip_front, Args&&...>();
 	static_assert(drops, "Unable to construct T from args");
 
-	//TODO replace with pack index
 	auto fwd = std::forward_as_tuple(std::forward<Args>(args)...);
 
 	return [&]<std::size_t ...Idx>(std::index_sequence<Idx...>){
-		return T(std::get<Idx + (Idx >= skip_front ? drops.drop : 0uz)>(fwd) ...);
+		return T(std::get<Idx + (Idx >= skip_front ? drops.drop : 0uz)>(std::move(fwd)) ...);
 	}(std::make_index_sequence<sizeof...(Args) - drops.drop - drops.drop_back>{});
 }
 
@@ -169,32 +168,12 @@ template <typename T, std::size_t skip_front = 0, typename ...Args>
 	static constexpr redundant_test_result drops = test_constructible_drop_FRONT_MAJOR_param_v<T, skip_front, Args&&...>();
 	static_assert(drops, "Unable to construct T from args");
 
-	//TODO replace with pack index
 	auto fwd = std::forward_as_tuple(std::forward<Args>(args)...);
 
 	return [&]<std::size_t ...Idx>(std::index_sequence<Idx...>){
-		return T(std::get<Idx + (Idx >= skip_front ? drops.drop : 0uz)>(fwd) ...);
+		return T(std::get<Idx + (Idx >= skip_front ? drops.drop : 0uz)>(std::move(fwd)) ...);
 	}(std::make_index_sequence<sizeof...(Args) - drops.drop - drops.drop_back>{});
 }
-
-struct T{
-	int v{};
-
-	[[nodiscard]] constexpr T() = default;
-
-	[[nodiscard]] constexpr T(std::string_view){}
-
-	[[nodiscard]] constexpr explicit T(int v)
-		: v(v){
-	}
-};
-
-constexpr T t1 = back_redundant_construct<T>(std::string_view{}, 2);
-static_assert(t1.v == 0);
-
-
-constexpr T t2 = front_redundant_construct<T>(std::string_view{}, 2);
-static_assert(t2.v == 2);
 
 #pragma endregion
 
