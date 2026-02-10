@@ -57,7 +57,7 @@
 
 #ifdef _MSC_VER
 #define NO_INLINE __declspec(noinline)
-#elif __has_attribute(gnu::noinline)
+#elif __has_cpp_attribute(gnu::noinline)
 #define NO_INLINE [[gnu::noinline]]
 #else
 #define NO_INLINE
