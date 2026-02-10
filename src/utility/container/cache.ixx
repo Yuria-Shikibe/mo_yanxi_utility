@@ -4,13 +4,14 @@ import mo_yanxi.meta_programming;
 import std;
 
 namespace mo_yanxi {
+    struct nit_{};
     /**
      * @brief Union 槽位，避免默认构造，且支持 constexpr 访问
      */
     template <typename T>
     union slot_t {
         T value;
-        struct {} uninit_{};
+        nit_ uninit_{};
 
         constexpr slot_t() noexcept {}
         constexpr ~slot_t() noexcept {} // 具体的析构由 lru_cache 控制
