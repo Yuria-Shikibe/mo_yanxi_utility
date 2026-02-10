@@ -13,14 +13,32 @@ option("add_latest") --Used for libc++/clang, missing some of c++23 facilities
     set_default(true)
 option_end()
 
-if is_plat("windows") then
-    if is_mode("debug") then
-        set_runtimes("MDd")
+
+option("add_test")
+    set_default(false)
+    set_description("Add google test target")
+option_end()
+
+option("add_benchmark")
+    set_default(false)
+    set_description("Add add_benchmark target")
+option_end()
+
+
+option("use_libcxx")
+    add_deps("toolchain")
+    on_check(function (option)
+        option:enable(get_config("toolchain") == "clang" and not is_plat("windows"))
+    end)
+    set_description("Use libc++")
+option_end()
+
+if not get_config("runtimes") then
+    if is_plat("windows") then
+        set_runtimes(is_mode("debug") and "MDd" or "MD")
     else
-        set_runtimes("MD")
+        set_runtimes("c++_shared")
     end
-else
-    set_runtimes("c++_shared")
 end
 
 rule("mo_yanxi.settings")
@@ -44,12 +62,10 @@ on_load(function (target)
 end)
 rule_end()
 
-add_requires("gtest")
-add_requires("benchmark")
+if has_config("add_test") then add_requires("gtest") end
+if has_config("add_benchmark") then add_requires("benchmark") end
 
--- TODO make this works for gcc and libstdc++, currently this is used for remote action only
-
-if is_plat("linux") then
+if (get_config("toolchain") ~= "msvc") and has_config("use_libcxx") then
     add_requireconfs("*", {configs = {cxflags = "-stdlib=libc++", ldflags = {"-stdlib=libc++", "-lc++abi", "-lunwind"}}})
     add_cxflags("-stdlib=libc++")
     add_ldflags("-stdlib=libc++", "-lc++abi", "-lunwind")
@@ -99,7 +115,7 @@ target("mo_yanxi.utility.test")
 
     add_files("test/**.cpp")
 
-    -- set_installable(false)
+    set_enabled(has_config("add_test"))
 target_end()
 
 
@@ -117,8 +133,7 @@ target("mo_yanxi.utility.benchmark")
     add_packages("benchmark")
 
     add_files("benchmark/**.cpp")
-
-    -- set_installable(false)
+    set_enabled(has_config("add_benchmark"))
 target_end()
 
 includes("xmake2cmake.lua")
