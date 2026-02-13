@@ -1151,6 +1151,74 @@ template <arithmetic T>
 	return {tags::unchecked, tags::from_extent, off, sz};
 }
 
+export
+template <arithmetic T>
+FORCE_INLINE constexpr math::section<vector2<T>> get_closest_points(
+	const rect_ortho<T>& rect_a,
+	const rect_ortho<T>& rect_b) noexcept {
+
+	constexpr static auto solve_axis = [] FORCE_INLINE (T min_a, T max_a, T min_b, T max_b) static -> section<T> {
+		// 情况 1: 区间 A 完全在 区间 B 的左侧 (max_a <= min_b)
+		// 最近点是 A 的右端点和 B 的左端点
+		if (max_a <= min_b) {
+			return {max_a, min_b};
+		}
+		// 情况 2: 区间 A 完全在 区间 B 的右侧 (min_a >= max_b)
+		// 最近点是 A 的左端点和 B 的右端点
+		if (min_a >= max_b) {
+			return {min_a, max_b};
+		}
+
+		// 情况 3: 区间重叠
+		// 距离为 0，理论上交集内的任意点都满足条件。
+		// 为了确定性，我们选择交集区域的起始点：max(min_a, min_b)
+		auto intersection_start = (min_a > min_b) ? min_a : min_b;
+		return {intersection_start, intersection_start};
+	};
+
+	const auto [ax, bx] = solve_axis(
+		rect_a.get_src_x(), rect_a.get_end_x(),
+		rect_b.get_src_x(), rect_b.get_end_x()
+	);
+
+	const auto [ay, by] = solve_axis(
+		rect_a.get_src_y(), rect_a.get_end_y(),
+		rect_b.get_src_y(), rect_b.get_end_y()
+	);
+
+	// 组合结果
+	return { vector2<T>{ax, ay}, vector2<T>{bx, by} };
+}
+
+export
+template <arithmetic T>
+[[nodiscard]] constexpr section<vector2<T>> get_closest_vertex_pair(
+	const rect_ortho<T>& r1,
+	const rect_ortho<T>& r2) noexcept {
+
+	vector2<T> best_v1;
+	vector2<T> best_v2;
+
+	auto min_d2 = std::numeric_limits<T>::max();
+
+	for (int i = 0; i < 4; ++i) {
+		const auto v1 = r1[i];
+
+		for (int j = 0; j < 4; ++j) {
+			const auto v2 = r2[j];
+			const auto d2 = v1.dst2(v2);
+
+			if (d2 < min_d2) {
+				min_d2 = d2;
+				best_v1 = v1;
+				best_v2 = v2;
+			}
+		}
+	}
+
+	return {best_v1, best_v2};
+}
+
 // export
 // irect get_indexed_wrap_of(
 // usize2 extent,

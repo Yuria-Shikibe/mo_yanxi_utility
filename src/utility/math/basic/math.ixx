@@ -1217,6 +1217,10 @@ struct section{
 		return (from + to) / T(2);
 	}
 
+	MATH_ATTR constexpr T delta() const noexcept{
+		return to - from;
+	}
+
 	MATH_ATTR constexpr bool within_closed(const T& value) const noexcept requires std::totally_ordered<T>{
 		return value >= from && value <= to;
 	}

@@ -1179,6 +1179,7 @@ namespace mo_yanxi::math{
 		FORCE_INLINE friend constexpr value_type sqr(const vector2& v) noexcept{
 			return v.length2();
 		}
+
 		FORCE_INLINE friend constexpr value_type dot(const vector2& l, const vector2& r) noexcept{
 			return l.dot(r);
 		}

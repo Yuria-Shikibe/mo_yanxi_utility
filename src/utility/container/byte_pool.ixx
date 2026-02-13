@@ -126,8 +126,6 @@ namespace mo_yanxi {
         }
     };
 
-
-
     template <typename T, typename Alloc>
     struct byte_borrow {
     private:
@@ -184,8 +182,21 @@ namespace mo_yanxi {
 		constexpr void resize(unsigned count);
 
         FORCE_INLINE constexpr T* data() const noexcept { return array_.data(); }
+        FORCE_INLINE constexpr std::size_t size() const noexcept { return array_.size(); }
         [[nodiscard]] constexpr byte_buffer<T> get() const noexcept { return array_; }
         explicit(false) operator byte_buffer<T>() const noexcept { return array_; }
+        explicit(false) operator std::span<T>() const noexcept { return array_; }
+
+
+    	FORCE_INLINE constexpr auto begin() const noexcept { return array_.begin(); }
+    	FORCE_INLINE constexpr auto end() const noexcept { return array_.end(); }
+    	FORCE_INLINE constexpr auto cbegin() const noexcept { return array_.cbegin(); }
+    	FORCE_INLINE constexpr auto cend() const noexcept { return array_.cend(); }
+
+    	FORCE_INLINE constexpr auto rbegin() const noexcept { return array_.rbegin(); }
+    	FORCE_INLINE constexpr auto rend() const noexcept { return array_.rend(); }
+    	FORCE_INLINE constexpr auto crbegin() const noexcept { return array_.crbegin(); }
+    	FORCE_INLINE constexpr auto crend() const noexcept { return array_.crend(); }
 
         constexpr ~byte_borrow() {
             retire_();

@@ -121,7 +121,27 @@ public:
         return true;
     }
 
-    // --- 辅助功能 (Accessors) ---
+	template <std::predicate<value_type&> Predicate>
+	constexpr void modify_and_erase(Predicate pred) noexcept(std::is_nothrow_move_assignable_v<value_type> && std::is_nothrow_invocable_v<Predicate, value_type&>){
+
+    	auto it = std::ranges::begin(this->container_);
+    	auto end = std::ranges::end(this->container_);
+    	if(it == end){
+    		return;
+    	}
+    	auto last = std::ranges::prev(end);
+    	while (it != end) {
+    		if (std::invoke(pred, *it)) {
+    			*it = std::ranges::iter_move(last);
+    			--end;
+    			--last;
+    		} else {
+    			++it;
+    		}
+    	}
+
+    	this->container_.erase(end, this->container_.end());
+    }
 
     [[nodiscard]] constexpr bool empty() const noexcept {
         return this->container_.empty();
