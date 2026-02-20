@@ -48,6 +48,30 @@ namespace mo_yanxi::math{
 			}
 		}
 
+		[[nodiscard]] PURE_FN FORCE_INLINE friend constexpr vector2 operator-(const vector2 v, T tgt) noexcept {
+			if constexpr(std::same_as<bool, T>){
+				return vector2(v.x && !tgt, v.y && !tgt);
+			}else{
+				return vector2(v.x - tgt, v.y - tgt);
+			}
+		}
+
+		[[nodiscard]] PURE_FN FORCE_INLINE friend constexpr vector2 operator-(T tgt, const vector2 v) noexcept {
+			if constexpr(std::same_as<bool, T>){
+				return vector2(tgt && !v.x, tgt && !v.y);
+			}else{
+				return vector2(tgt - v.x, tgt - v.y);
+			}
+		}
+
+		[[nodiscard]] PURE_FN FORCE_INLINE friend constexpr vector2 operator+(const vector2 v, T tgt) noexcept {
+			return vector2(v.x + tgt, v.y + tgt);
+		}
+
+		[[nodiscard]] PURE_FN FORCE_INLINE friend constexpr vector2 operator+(T tgt, const vector2 v) noexcept {
+			return vector2(v.x + tgt, v.y + tgt);
+		}
+
 		[[nodiscard]] PURE_FN FORCE_INLINE constexpr vector2 operator*(const_pass_t tgt) const noexcept {
 			return vector2(x * tgt.x, y * tgt.y);
 		}
