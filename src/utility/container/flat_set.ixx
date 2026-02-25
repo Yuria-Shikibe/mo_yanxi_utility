@@ -126,15 +126,13 @@ public:
 
     	auto it = std::ranges::begin(this->container_);
     	auto end = std::ranges::end(this->container_);
-    	if(it == end){
-    		return;
-    	}
-    	auto last = std::ranges::prev(end);
+
     	while (it != end) {
     		if (std::invoke(pred, *it)) {
-    			*it = std::ranges::iter_move(last);
     			--end;
-    			--last;
+    			if (it != end) {
+    				*it = std::ranges::iter_move(end);
+    			}
     		} else {
     			++it;
     		}

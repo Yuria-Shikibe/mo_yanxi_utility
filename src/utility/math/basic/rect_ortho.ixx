@@ -17,6 +17,9 @@ namespace mo_yanxi::math{
 export
 template <typename T>
 struct rect_ortho_trivial{
+private:
+	static constexpr T TWO{2};
+
 public:
 	using vec_t = vector2<T>;
 
@@ -70,6 +73,44 @@ public:
 	FORCE_INLINE rect_ortho_trivial& move(vec_t mov) noexcept{
 		src += mov;
 		return *this;
+	}
+
+
+	[[nodiscard]] FORCE_INLINE constexpr T get_src_x() const noexcept{
+		return src.x;
+	}
+
+	[[nodiscard]] FORCE_INLINE constexpr vec_t get_src() const noexcept{
+		return src;
+	}
+
+	[[nodiscard]] FORCE_INLINE constexpr vec_t get_end() const noexcept{
+		return src + extent;
+	}
+
+	[[nodiscard]] FORCE_INLINE constexpr T get_src_y() const noexcept{
+		return src.y;
+	}
+
+
+	[[nodiscard]] FORCE_INLINE constexpr T get_end_x() const noexcept{
+		return src.x + extent.x;
+	}
+
+	[[nodiscard]] FORCE_INLINE constexpr T get_end_y() const noexcept{
+		return src.y + extent.y;
+	}
+
+	[[nodiscard]] FORCE_INLINE constexpr T get_center_x() const noexcept{
+		return src.x + extent.x / TWO;
+	}
+
+	[[nodiscard]] FORCE_INLINE constexpr T get_center_y() const noexcept{
+		return src.y + extent.y / TWO;
+	}
+
+	[[nodiscard]] FORCE_INLINE constexpr vec_t get_center() const noexcept{
+		return src + extent / TWO;
 	}
 };
 

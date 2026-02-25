@@ -16,9 +16,6 @@ constexpr bool no_delete_on_drop = std::is_same_v<T, no_deletion_on_ref_count_to
 
 export
 template <typename T, typename D = std::default_delete<T>>
-struct referenced_ptr;
-
-template <typename T, typename D>
 struct referenced_ptr{
 	template <typename Ty, typename Dy>
 	friend struct referenced_ptr;
@@ -47,15 +44,39 @@ struct referenced_ptr{
 		}{
 	}
 
-	template <std::derived_from<T> Ty>
-		requires (std::is_const_v<T> == std::is_const_v<Ty>)
-	explicit(false) referenced_ptr(const referenced_ptr<Ty>& other) : referenced_ptr{other.get()}{}
-
-	template <std::derived_from<T> Ty>
-		requires (std::is_const_v<T> == std::is_const_v<Ty>)
-	explicit(false) referenced_ptr(referenced_ptr<Ty>&& other) : object{std::exchange(other.object, {})}{
+	template <typename Ty, typename... Args>
+		requires (std::constructible_from<T, Args...>)
+	[[nodiscard]] explicit constexpr referenced_ptr(std::in_place_type_t<Ty>, Args&&... args) : referenced_ptr{
+			new element_type(std::forward<Args>(args)...)
+		}{
 	}
 
+	// template <std::derived_from<T> Ty>
+	// 	requires (std::is_const_v<T> == std::is_const_v<Ty>)
+	// explicit(false) referenced_ptr(const referenced_ptr<Ty>& other) : referenced_ptr{other.get()}{}
+	//
+	// template <std::derived_from<T> Ty>
+	// 	requires (std::is_const_v<T> == std::is_const_v<Ty>)
+	// explicit(false) referenced_ptr(referenced_ptr<Ty>&& other) : object{std::exchange(other.object, {})}{
+	// }
+
+
+	template <typename Ty>
+		requires requires(Ty& t){
+			requires std::derived_from<std::remove_cvref_t<Ty>, T>;
+			requires std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
+			t.ref_incr();
+		}
+	explicit(false) referenced_ptr(const referenced_ptr<Ty>& other) : referenced_ptr{other.get()}{
+	}
+	template <typename Ty>
+		requires requires(Ty& t){
+			requires std::derived_from<std::remove_cvref_t<Ty>, T>;
+			requires std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
+			t.ref_incr();
+		}
+	explicit(false) referenced_ptr(referenced_ptr<Ty>&& other) : referenced_ptr{std::exchange(other.object, {})}{
+	}
 
 private:
 	void delete_elem(pointer t) noexcept {
@@ -138,12 +159,30 @@ public:
 
 	constexpr bool operator==(const referenced_ptr&) const noexcept = default;
 
+	explicit(false) operator referenced_ptr<const T, D>() const noexcept requires (!std::is_const_v<T> && requires(const T& t){
+		t.ref_incr();
+	}){
+		return referenced_ptr<const T, D>{object};
+	}
+
+	template <typename Ty>
+	explicit(false) operator referenced_ptr<Ty, D>() const noexcept requires requires(Ty& t){
+		requires std::derived_from<T, std::remove_cvref_t<Ty>>;
+		requires std::has_virtual_destructor_v<std::remove_cvref_t<Ty>>;
+		t.ref_incr();
+	}{
+		return referenced_ptr<Ty, D>{static_cast<Ty*>(object)};
+	}
+
 
 private:
 	T* object{};
 	ADAPTED_NO_UNIQUE_ADDRESS D deleter{};
 };
 
+
+template <typename T, typename... Args>
+referenced_ptr(std::in_place_type_t<T>, Args&&...) -> referenced_ptr<T>;
 
 export
 template <typename T, typename D>
