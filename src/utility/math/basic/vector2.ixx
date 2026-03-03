@@ -710,6 +710,14 @@ namespace mo_yanxi::math{
 			return *this;
 		}
 
+		FORCE_INLINE constexpr T get_max() const noexcept {
+			return math::max(x, y);
+		}
+
+		FORCE_INLINE constexpr T get_min() const noexcept {
+			return math::min(x, y);
+		}
+
 		// FORCE_INLINE constexpr vector2& clampNormalized() noexcept requires std::floating_point<T>{
 		// 	return clamp_x(0, 1).clamp_y(0, 1);
 		// }
