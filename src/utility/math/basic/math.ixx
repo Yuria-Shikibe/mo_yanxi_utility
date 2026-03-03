@@ -902,22 +902,12 @@ export constexpr inline cpo_lerp::impl lerp{};
 
 
 namespace cpo_dot{
-template <typename T, typename Prog>
+template <typename T>
 void dot(const T&, const T&) noexcept = delete;
 
 struct impl{
 	template <arithmetic T>
 	[[nodiscard]] FORCE_INLINE static constexpr T operator()(const T l, const T r) noexcept{
-		return l * r;
-	}
-
-	template <std::convertible_to<float> T>
-	[[nodiscard]] FORCE_INLINE static constexpr T operator()(const T& l, const T& r) noexcept{
-		return l * r;
-	}
-
-	template <std::convertible_to<double> T>
-	[[nodiscard]] FORCE_INLINE static constexpr T operator()(const T& l, const T& r) noexcept{
 		return l * r;
 	}
 

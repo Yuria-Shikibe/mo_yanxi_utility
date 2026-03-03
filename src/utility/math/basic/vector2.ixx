@@ -326,6 +326,10 @@ namespace mo_yanxi::math{
 			return {math::fma(a.x, b, c.x), math::fma(a.y, b, c.y)};
 		}
 
+		[[nodiscard]] PURE_FN FORCE_INLINE friend constexpr vector2 fma(T a, vector2 b, vector2 c) noexcept {
+			return {math::fma(a, b.x, c.x), math::fma(a, b.y, c.y)};
+		}
+
 	private:
 		/**
 		 * @return self * mul + add

@@ -138,17 +138,6 @@ struct function_traits<Ret(T::*)(Args...)> : function_traits<Ret(T*, Args...)>{
 	using mem_func_args_type = std::tuple<Args...>;
 };
 
-// export
-// template <typename T>
-// struct normalized_function{
-// 	using type = std::remove_pointer_t<T>;
-// };
-//
-// template <typename T>
-// 	requires std::is_member_function_pointer_v<T>
-// struct normalized_function<T>{
-// 	using type = std::remove_pointer_t<T>;
-// };
 
 #define VariantFunc(ext) template<typename Ret, typename... Args> struct function_traits<Ret(Args...) ext> : function_traits<Ret(Args...)>{};
 VariantFunc(&);
