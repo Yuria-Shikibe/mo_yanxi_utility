@@ -2,7 +2,7 @@ name: Build And Test
 
 env:
   TARGET_NAME: mo_yanxi.utility.test
-  LLVM_VER: 21
+  LLVM_VER: 22
 
 on:
   push:
