@@ -15,7 +15,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         os: [
           windows-latest,
@@ -73,27 +73,28 @@ jobs:
       - name: Build ${{ matrix.mode }}
         shell: bash
         run: |
-          XMAKE_FLAGS="-m ${{ matrix.mode }} --toolchain=${{ matrix.toolchain }}"
-          EXTRA_FLAGS=""
-          PLAT_FLAGS=""
+          CONFIG_CMD="xmake f --mode=${{ matrix.mode }} --toolchain=${{ matrix.toolchain }} --add_test=y -y"
           
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-             PLAT_FLAGS="-p linux"
+            CONFIG_CMD="$CONFIG_CMD -p linux"
           else
-             PLAT_FLAGS="-p windows"
+            CONFIG_CMD="$CONFIG_CMD -p windows"
           fi
           
+          # Linux Clang 特殊处理
           if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.toolchain }}" == "clang" ]]; then
-             clang --version
-             EXTRA_FLAGS="--sdk=/usr/lib/llvm-${{ env.LLVM_VER }} --cxflags='-stdlib=libc++' --ldflags='-stdlib=libc++ -lc++abi -lunwind' --add_latest=false" 
-          else
-             EXTRA_FLAGS=""
+             # 动态获取安装路径，避免硬编码版本号带来的路径错误
+             LLVM_PATH="/usr/lib/llvm-${{ env.LLVM_VER }}"
+             EXTRA_FLAGS="--sdk=$LLVM_PATH --cxflags=-stdlib=libc++ --ldflags='-stdlib=libc++ -lc++abi -lunwind'"
+          
+             # 只有当安装了自定义 LLVM 时才导出 PATH
+             echo "$LLVM_PATH/bin" >> $GITHUB_PATH
+          
+             CONFIG_CMD="$CONFIG_CMD $EXTRA_FLAGS"
           fi
-          
-          echo "Configuring with: $XMAKE_FLAGS $EXTRA_FLAGS"
-          eval xmake f -cyv $XMAKE_FLAGS $PLAT_FLAGS $EXTRA_FLAGS
-          
-          xmake -b -y ${{ env.TARGET_NAME }}
+
+          echo "Running: $CONFIG_CMD"
+          eval $CONFIG_CMD
 
       - name: Test
         run: xmake run ${{ env.TARGET_NAME }}
