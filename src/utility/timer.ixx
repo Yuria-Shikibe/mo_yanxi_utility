@@ -2,27 +2,26 @@
 // Created by Matrix on 2024/3/7.
 //
 
-export module ext.timer;
+export module mo_yanxi.timer;
 
 import std;
 
 export namespace mo_yanxi{
 
 	/**
-	 * @brief Time Unit in Game Tick! [60ticks / 1sec]
-	 * @tparam size Interval Chennals
+	 * @tparam Channel Interval Chennals
 	 */
-	template <typename T = float, std::size_t size = 1>
+	template <typename T = float, std::size_t Channel = 1>
 		requires (std::is_arithmetic_v<T>)
 	class timer{
 
 	public:
 		using value_type = float;
 	private:
-		std::array<value_type, size> reloads{};
+		std::array<value_type, Channel> reloads{};
 
 	public:
-		static constexpr std::size_t timeSize = size;
+		static constexpr std::size_t channels = Channel;
 
 		constexpr timer() noexcept = default;
 

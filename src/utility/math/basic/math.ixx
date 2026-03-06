@@ -512,6 +512,14 @@ template <std::floating_point T = float, typename IdxT>
 }
 
 export
+template <std::floating_point T = float, typename IdxT>
+[[nodiscard]] MATH_ATTR constexpr T idx_to_factor(IdxT idx, IdxT total, IdxT min) noexcept{
+	assert(idx <= total);
+	if(idx <= min || total <= min)return T{};
+	return static_cast<T>(idx - min) / static_cast<T>(total - min);
+}
+
+export
 template <small_object T>
 	requires requires(T t){
 		{ t < t } -> std::convertible_to<bool>;
@@ -1364,6 +1372,8 @@ struct section{
 			return section{std::invoke(fn, std::forward_like<S>(self.from), args...), std::invoke(fn, std::forward_like<S>(self.to), args...)};
 		}
 	}
+
+	constexpr bool operator==(const section&) const noexcept = default;
 };
 
 export

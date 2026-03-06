@@ -32,25 +32,22 @@ export namespace mo_yanxi::math {
 			x ^= x >> 33;
 			x *= 0xc4ceb9fe1a85ec53ull;
 			x ^= x >> 33;
-
 			return x;
 		}
 
 		/** The first half of the internal state of this pseudo-random number generator. */
 		seed_t seed0{};
+
 		/** The second half of the internal state of this pseudo-random number generator. */
 		seed_t seed1{};
 
-		// constexpr int next(const int bits) noexcept {
-		// 	return static_cast<int>(next() & (1ull << bits) - 1ull);
-		// }
-
 	public:
 		static auto get_default_seed() noexcept {
-			return std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+			// 优化：使用纳秒级高精度时钟，防止同秒内生成相同种子
+			return static_cast<seed_t>(std::chrono::high_resolution_clock::now().time_since_epoch().count());
 		}
 
-		rand() noexcept { // NOLINT(*-use-equals-default)
+		rand() noexcept {
 			set_seed(get_default_seed());
 		}
 
@@ -68,11 +65,11 @@ export namespace mo_yanxi::math {
 		constexpr rand(const seed_t seed0, const seed_t seed1) noexcept {
 			set_state(seed0, seed1);
 		}
-		
+
 		constexpr std::uint64_t next() noexcept {
 			seed_t s1       = this->seed0;
 			const seed_t s0 = this->seed1;
-			this->seed0       = s0;
+			this->seed0     = s0;
 			s1 ^= s1 << 23;
 			return (this->seed1 = s1 ^ s0 ^ s1 >> 17ull ^ s0 >> 26ull) + s0;
 		}
@@ -81,23 +78,25 @@ export namespace mo_yanxi::math {
 			return next();
 		}
 
-		template <typename T>
-			requires (std::is_arithmetic_v<T>)
-		constexpr T next() noexcept{
-			if constexpr (std::integral<T>){
-				return static_cast<T>(next());
-			}else if constexpr (std::floating_point<T>){
-				if constexpr (std::same_as<T, float>){
-					return static_cast<float>(next() >> 40) * NORM_FLOAT; // NOLINT(*-narrowing-conversions)
-				}else if constexpr (std::same_as<T, double>){
-					return static_cast<double>(next() >> 11) * NORM_DOUBLE;
-				}else{
-					static_assert(false, "unsupported floating type");
-				}
-			}else if constexpr (std::same_as<T, bool>){
+		// 优化：利用 Concept 拆分整型逻辑
+		template <std::integral T>
+		constexpr T next() noexcept {
+			if constexpr (std::same_as<T, bool>) {
 				return (next() & 1) != 0;
-			}else{
-				static_assert(false, "unsupported arithmetic type");
+			} else {
+				return static_cast<T>(next());
+			}
+		}
+
+		// 优化：利用 Concept 拆分浮点逻辑
+		template <std::floating_point T>
+		constexpr T next() noexcept {
+			if constexpr (std::same_as<T, float>) {
+				return static_cast<float>(next() >> 40) * NORM_FLOAT;
+			} else if constexpr (std::same_as<T, double>) {
+				return static_cast<double>(next() >> 11) * NORM_DOUBLE;
+			} else {
+				static_assert(std::same_as<T, void>, "unsupported floating type");
 			}
 		}
 
@@ -113,38 +112,40 @@ export namespace mo_yanxi::math {
 		 * @return the next pseudo-random {int} value between {0} (inclusive) and {n} (exclusive).
 		 */
 		constexpr int next_int(const int n_exclusive) noexcept {
-			return next(n_exclusive);
+			return static_cast<int>(next(static_cast<std::uint64_t>(n_exclusive)));
 		}
 
 		/**
-		 * Returns a pseudo-random, uniformly distributed {long} value between 0 (inclusive) and the specified value (exclusive),
-		 * drawn from this random number generator's sequence. The algorithm used to generate the value guarantees that the result is
-		 * uniform, provided that the sequence of 64-bit values produced by this generator is.
+		 * Returns a pseudo-random, uniformly distributed {long} value between 0 (inclusive) and the specified value (exclusive).
 		 * @param n_exclusive the positive bound on the random number to be returned.
-		 * @return (0, n]
+		 * @return [0, n)
 		 */
 		constexpr std::uint64_t next(const std::uint64_t n_exclusive) noexcept {
 			assert(n_exclusive != 0);
-			for(;;) {
-				const std::uint64_t bits  = next() >> 1ull;
-				const std::uint64_t value = bits % n_exclusive;
-				if(bits >= value + (n_exclusive - 1)) return value;
-			}
+			if (n_exclusive == 1) return 0;
+
+			// 优化：使用位掩码代替缓慢的取模运算
+			const std::uint64_t mask = std::bit_ceil(n_exclusive) - 1;
+			std::uint64_t value;
+			do {
+				value = next() & mask;
+			} while (value >= n_exclusive);
+
+			return value;
 		}
 
 		/**
-		 * The given seed is passed twice through a hash function. This way, if the user passes a small value we avoid the short
-		 * irregular transient associated with states having a very small number of bits set.
-		 * @param _seed a nonzero seed for this generator (if zero, the generator will be seeded with @link std::numeric_limits<SeedType>::lowest() @endlink ).
+		 * The given seed is passed twice through a hash function.
+		 * @param _seed a nonzero seed for this generator.
 		 */
 		constexpr void set_seed(const seed_t _seed) noexcept {
-			const seed_t seed0 = murmurHash3(_seed == 0 ? std::numeric_limits<seed_t>::lowest() : _seed);
-			set_state(seed0, murmurHash3(seed0));
+			const seed_t seed0_val = murmurHash3(_seed == 0 ? std::numeric_limits<seed_t>::lowest() : _seed);
+			set_state(seed0_val, murmurHash3(seed0_val));
 		}
 
 		template <std::floating_point T>
-		constexpr bool chance(const T chance) noexcept {
-			return next<T>() < chance;
+		constexpr bool chance(const T chance_val) noexcept {
+			return next<T>() < chance_val;
 		}
 
 		template <std::floating_point T>
@@ -152,61 +153,57 @@ export namespace mo_yanxi::math {
 			return static_cast<T>(1) + this->range(inaccuracy);
 		}
 
-		template <typename T>
-			requires (std::is_arithmetic_v<T>)
-		constexpr T range(const T range) noexcept {
-			if constexpr (std::integral<T>){
-				//TODO support unsigned to signed??
-				return this->next_int(range * 2 + 1) - range;
-			}else if constexpr (std::floating_point<T>){
-				return next<T>() * range * 2 - range;
-			}else{
-				static_assert(false, "unsupported arithmetic type");
-			}
-
+		template <std::integral T>
+		constexpr T range(const T rng) noexcept {
+			return static_cast<T>(this->next(static_cast<std::uint64_t>(rng) * 2 + 1)) - rng;
 		}
 
-		template <typename T>
-			requires (std::is_arithmetic_v<T>)
+		template <std::floating_point T>
+		constexpr T range(const T rng) noexcept {
+			return next<T>() * rng * 2 - rng;
+		}
+
+		template <std::integral T>
 		constexpr T random(const T max_inclusive) noexcept {
-			if constexpr (std::integral<T>){
-				//TODO support unsigned to signed??
-				return this->next_int(max_inclusive + 1);
-			}else if constexpr (std::floating_point<T>){
-				return next<T>() * max_inclusive;
-			}else{
-				static_assert(false, "unsupported arithmetic type");
-			}
+			return static_cast<T>(this->next(static_cast<std::uint64_t>(max_inclusive) + 1));
+		}
+
+		template <std::floating_point T>
+		constexpr T random(const T max_inclusive) noexcept {
+			return next<T>() * max_inclusive;
 		}
 
 		template <typename T1, typename T2>
 			requires (std::is_arithmetic_v<T1> && std::is_arithmetic_v<T2>)
 		constexpr auto random(const T1 min, const T2 max) noexcept -> std::common_type_t<T1, T2> {
 			using T = std::common_type_t<T1, T2>;
-
-			if constexpr (std::integral<T>){
+			if constexpr (std::integral<T>) {
 				assert(min <= max);
-				return min + this->next_int(max - min + 1);
-			}else{
+				return min + static_cast<T>(this->next(static_cast<std::uint64_t>(max - min) + 1));
+			} else {
 				return min + (max - min) * next<T>();
 			}
 		}
 
 		template <typename T1, typename T2>
 			requires (std::is_arithmetic_v<T1> && std::is_arithmetic_v<T2>)
-		constexpr auto operator()(const T1 min, const T2 max) noexcept -> std::common_type_t<T1, T2>{
+		constexpr auto operator()(const T1 min, const T2 max) noexcept -> std::common_type_t<T1, T2> {
 			return this->random(min, max);
 		}
 
-		template <typename T>
-			requires (std::is_arithmetic_v<T>)
-		constexpr T operator()(const T range) noexcept{
-			return this->range(range);
+		template <std::integral T>
+		constexpr T operator()(const T rng) noexcept {
+			return this->range(rng);
+		}
+
+		template <std::floating_point T>
+		constexpr T operator()(const T rng) noexcept {
+			return this->range(rng);
 		}
 
 		template <typename T = float>
-			requires (std::is_arithmetic_v<T>)
-		constexpr T random_direction_deg() noexcept{
+			requires (std::is_floating_point_v<T>)
+		constexpr T random_direction_deg() noexcept {
 			return this->random<T>(static_cast<T>(360));
 		}
 
