@@ -20,10 +20,15 @@ struct referenced_ptr{
 	template <typename Ty, typename Dy>
 	friend struct referenced_ptr;
 
+
 	using element_type = std::remove_const_t<T>;
 	using pointer = T*;
 
 	[[nodiscard]] constexpr referenced_ptr() = default;
+
+	[[nodiscard]] constexpr explicit(false) referenced_ptr(T& object) : object{std::addressof(object)}{
+		incr();
+	}
 
 	[[nodiscard]] constexpr explicit(false) referenced_ptr(pointer object) : object{object}{
 		if(this->object) incr();
