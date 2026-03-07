@@ -642,13 +642,6 @@ constexpr T sqrt(const T x) noexcept{
 
 export
 template <typename T1, typename T2>
-/*requires requires(T1 v1, T2 v2){
-	v1 - v1;
-	(v1 - v1) / (v1 - v1);
-
-	v2 - v2;
-	{ (v1 - v1) / (v1 - v1) * (v2 - v2) } -> std::convertible_to<T2>;
-}*/
 MATH_ATTR constexpr T2 map(
 	const T1 value,
 	const T1 from, const T1 to,
