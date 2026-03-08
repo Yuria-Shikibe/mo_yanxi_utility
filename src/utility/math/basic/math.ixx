@@ -1208,6 +1208,10 @@ struct section{
 		return (from + to) / T(2);
 	}
 
+	MATH_ATTR constexpr T abs_max() const noexcept{
+		return math::max(math::abs(from), math::abs(to));
+	}
+
 	MATH_ATTR constexpr T delta() const noexcept{
 		return to - from;
 	}
