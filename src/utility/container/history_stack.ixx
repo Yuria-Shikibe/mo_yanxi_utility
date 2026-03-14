@@ -185,7 +185,7 @@ public:
 	}
 	// --- Push 操作 ---
 
-	constexpr void push(value_type&& val) noexcept(std::is_nothrow_move_constructible_v<value_type>){
+	constexpr void push(value_type&& val) {
 		// 1. 如果当前不在末尾，说明中间有被撤销的操作，需要截断（Discard Redo history）
 		truncate();
 

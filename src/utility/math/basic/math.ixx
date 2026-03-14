@@ -108,10 +108,10 @@ export inline constexpr cpo_fma::impl fma;
 export
 template <arithmetic T>
 MATH_ATTR T constexpr dst_safe(const T src, const T dst) noexcept{
-	if constexpr(!std::is_unsigned_v<T>){
-		return dst - src;
-	} else{
+	if constexpr(std::unsigned_integral<T>){
 		return src > dst ? src - dst : dst - src;
+	} else{
+		return dst - src;
 	}
 }
 

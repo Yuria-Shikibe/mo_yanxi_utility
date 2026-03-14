@@ -41,6 +41,10 @@ namespace mo_yanxi{
 			return *ptr;
 		}
 
+		explicit operator bool() const noexcept{
+			return ptr != nullptr;
+		}
+
 	private:
 		T* ptr{};
 	};
