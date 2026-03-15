@@ -271,6 +271,17 @@ constexpr std::size_t tuple_index_v = find_first_index_in_tuple<T, Tuple>();
 static_assert(tuple_index_v<int, std::tuple<float, double>> == 2);
 
 
+template <std::size_t Stride, typename Tup, typename Proj, std::size_t Offset = 0>
+using tuple_stride_t = decltype([]{
+	static_assert(Stride > 0);
+	static constexpr auto total = std::tuple_size_v<Tup>;
+	static constexpr auto count_raw = total / Stride;
+	static constexpr auto count = Offset < (total - count_raw * Stride) ? count_raw + 1 : count_raw;
+	return []<std::size_t ...Idx>(std::index_sequence<Idx...>){
+		return std::type_identity<std::tuple<std::invoke_result_t<Proj, std::tuple_element_t<Idx * Stride + Offset, Tup>>...>>{};
+	}(std::make_index_sequence<count>{});
+}())::type;
+
 
 template <std::size_t Idx, typename ArgsTuple>
 constexpr bool contained_in_exclusive = [] <std::size_t ... I>(std::index_sequence<I...>){
