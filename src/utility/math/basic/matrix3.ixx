@@ -453,6 +453,28 @@ public:
 		c3 = {mov.x, mov.y, 1};
 		return *this;
 	}
+
+	// 在 matrix3.ixx 内部添加：
+	FORCE_INLINE constexpr matrix3& rotate_90() noexcept {
+		const auto tmp_x1 = c1.x; c1.x = -c1.y; c1.y = tmp_x1;
+		const auto tmp_x2 = c2.x; c2.x = -c2.y; c2.y = tmp_x2;
+		const auto tmp_x3 = c3.x; c3.x = -c3.y; c3.y = tmp_x3;
+		return *this;
+	}
+
+	FORCE_INLINE constexpr matrix3& rotate_180() noexcept {
+		c1.x = -c1.x; c1.y = -c1.y;
+		c2.x = -c2.x; c2.y = -c2.y;
+		c3.x = -c3.x; c3.y = -c3.y;
+		return *this;
+	}
+
+	FORCE_INLINE constexpr matrix3& rotate_270() noexcept {
+		const auto tmp_x1 = c1.x; c1.x = c1.y; c1.y = -tmp_x1;
+		const auto tmp_x2 = c2.x; c2.x = c2.y; c2.y = -tmp_x2;
+		const auto tmp_x3 = c3.x; c3.x = c3.y; c3.y = -tmp_x3;
+		return *this;
+	}
 };
 
 export using mat3 = matrix3;

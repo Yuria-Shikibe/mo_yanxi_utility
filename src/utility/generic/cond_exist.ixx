@@ -26,7 +26,7 @@ struct cond_exist{
 
 	template<typename ...Args>
 		requires std::constructible_from<T, Args&&...>
-	explicit(false) cond_exist(Args&&... args){}
+	explicit(false) cond_exist(Args&&... args) noexcept {}
 
 };
 
@@ -38,7 +38,7 @@ struct cond_exist<T, true>{
 
 	template<typename ...Args>
 		requires std::constructible_from<T, Args&&...>
-	explicit(!impicit_construtible<T, Args&&...>) cond_exist(Args&&... args) : val(std::forward<Args>(args)...){
+	explicit(!impicit_construtible<T, Args&&...>) cond_exist(Args&&... args) noexcept(std::is_nothrow_constructible_v<T, Args&&...>) : val(std::forward<Args>(args)...){
 
 	}
 
