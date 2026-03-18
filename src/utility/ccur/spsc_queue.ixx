@@ -49,12 +49,14 @@ public:
 
 	template <typename... Args>
 		requires std::constructible_from<value_type, Args...>
-	void emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<value_type, Args...>) {
+	T& emplace(Args&&... args) noexcept(std::is_nothrow_constructible_v<value_type, Args...>) {
+		T* p;
 		{
 			std::lock_guard lock(m_mutex);
-			m_queue.emplace_back(std::forward<Args>(args)...);
+			p = std::addressof(m_queue.emplace_back(std::forward<Args>(args)...));
 		}
 		m_cond.notify_one();
+		return *p;
 	}
 
 	value_type consume() noexcept(std::is_nothrow_move_constructible_v<value_type>){
@@ -106,11 +108,45 @@ public:
 		return std::nullopt;
 	}
 
+	value_type* get_front() noexcept{
+		if(m_mutex.try_lock()){
+			std::lock_guard lock(m_mutex, std::adopt_lock);
+			if(m_queue.empty()){
+				return std::nullopt;
+			}
+
+			return std::addressof(m_queue.front());
+		}
+		return nullptr;
+	}
+
+
+	template <std::predicate<> ExitPred>
+	[[nodiscard]] bool pop_front(ExitPred exit_pred) noexcept{
+		std::unique_lock lock(m_mutex);
+		m_cond.wait(lock, [&, this]{
+			return !m_queue.empty() || exit_pred();
+		});
+
+		if(m_queue.empty()){
+			return false;
+		}
+
+		m_queue.pop_front();
+
+		return true;
+	}
+
 	[[nodiscard]] Cont dump() noexcept(std::is_nothrow_move_constructible_v<value_type>){
 		std::lock_guard lock(m_mutex);
 
 		auto alloc = m_queue.get_allocator();
 		return std::exchange(m_queue, Cont{std::move(alloc)});
+	}
+
+	void clear() noexcept{
+		std::lock_guard lock(m_mutex);
+		m_queue.clear();
 	}
 
 	[[nodiscard]] bool swap(Cont& cont) noexcept(std::is_nothrow_move_constructible_v<value_type>){

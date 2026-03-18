@@ -1,7 +1,7 @@
 task("gen_ide_hintonly_cmake")
     set_menu({
         usage = "xmake gencmake [options]",
-        description = "生成 CMakeLists.txt 并通过管道处理注入配置（C++ 模块、标准库、路径修复等）",
+        description = "生成 CMakeLists.txt 并通过管道处理注入配置（C++ 模块、标准库、路径修复等，仅供 IDE 索引）",
         options = {
             { 's', "std", "kv", "23", "指定 C++ 标准版本 (例如: 17, 20, 23). 默认为 23." },
             { 'm', "mode", "kv", "debug", "指定最终替换的 output directory 模式名称. 默认为 debug." },
@@ -15,7 +15,6 @@ task("gen_ide_hintonly_cmake")
 
         -----------------------------------------------------------------------
         -- 1. 上下文构建 (Context Builder)
-        -- 集中处理参数解析和环境配置
         -----------------------------------------------------------------------
         local function build_context()
             config.load()     -- 加载项目配置
@@ -33,18 +32,11 @@ task("gen_ide_hintonly_cmake")
             -- 获取自定义工具路径
             local util_path = config.get("spec_mo_yanxi_utility_path")
             if util_path and #util_path > 0 then
-                -- 转为绝对路径以确保比较准确
                 local util_dir = path.absolute(path.directory(util_path))
                 local root_dir = path.absolute(ctx.base_dirs[1])
 
-                -- 计算 util_dir 相对于 root_dir 的路径
                 local rel_path = path.relative(util_dir, root_dir)
 
-                -- 判定逻辑：
-                -- 1. 如果 rel_path 以 ".." 开头，说明需要向上回溯，即在 root_dir 外部。
-                -- 2. 如果 rel_path 是绝对路径（例如 Windows 跨盘符），说明完全不相关，即在 root_dir 外部。
-                -- 3. 否则（例如 "sub/folder" 或 "."），说明是子目录或同一目录。
-                -- 注意：Lua 正则中 % 为转义符，^%.%. 匹配以 .. 开头
                 local is_sub_or_same = (not rel_path:find("^%.%.")) and (not path.is_absolute(rel_path))
 
                 if not is_sub_or_same then
@@ -60,7 +52,6 @@ task("gen_ide_hintonly_cmake")
 
         -----------------------------------------------------------------------
         -- 2. 核心逻辑：文件内容处理器 (Content Processors)
-        -- 每个函数只做一件具体的文本修改任务
         -----------------------------------------------------------------------
         local processors = {}
 
@@ -101,6 +92,25 @@ endif()
                 return config_block .. content
             end
         end)
+
+       -- 【修改】处理器：移除 xmake 生成的 target_objectfiles_ 伪目标及相关链接
+               -- 解决正则误杀导致 target_link_libraries 函数头丢失的问题
+               table.insert(processors, function(content, ctx)
+                   -- 1. 完整删除伪目标的声明和属性设置行 (add_library 和 set_target_properties)
+                   local new_content = content:gsub("[^\r\n]*add_library%s*%(%s*target_objectfiles_[^\r\n]*\r?\n", "")
+                   new_content = new_content:gsub("[^\r\n]*set_target_properties%s*%(%s*target_objectfiles_[^\r\n]*\r?\n", "")
+
+                   -- 2. 清理 target_link_libraries 等处的伪目标引用
+                   -- 仅删除目标名字，保留 target_link_libraries 的调用外壳。
+                   -- [%w_%.%-]+ 用于匹配包含字母、数字、下划线、点和横杠的目标名称
+                   local final_content, count = new_content:gsub("target_objectfiles_[%w_%.%-]+", "")
+
+                   if count > 0 then
+                       print(string.format("patch: cleaned target_objectfiles_ references (%d times)", count))
+                   end
+                   return final_content
+               end)
+
 
         -- 处理器：清理 set_property
         table.insert(processors, function(content, ctx)
