@@ -525,11 +525,11 @@ template <small_object T>
 		{ t < t } -> std::convertible_to<bool>;
 	}
 MATH_ATTR constexpr T max(const T v1, const T v2) noexcept(noexcept(v2 < v1)){
-	if constexpr(std::floating_point<T>){
-		if !consteval{
-			return std::fmax(v1, v2);
-		}
-	}
+	// if constexpr(std::floating_point<T>){
+	// 	if !consteval{
+	// 		return std::fmax(v1, v2);
+	// 	}
+	// }
 
 	return v2 < v1 ? v1 : v2;
 }
