@@ -549,6 +549,31 @@ MATH_ATTR constexpr T min(const T v1, const T v2) noexcept(noexcept(v1 < v2)){
 	return v1 < v2 ? v1 : v2;
 }
 
+// ---------------------------------------------------------
+// 获取多个数字最大值的变参版本 (要求至少 3 个参数)
+// ---------------------------------------------------------
+export
+template <small_object T, typename... Rest>
+	requires requires(T t){
+	{ t < t } -> std::convertible_to<bool>;
+	} && (std::same_as<T, Rest> && ...)
+MATH_ATTR constexpr T max(const T v1, const T v2, const T v3, const Rest... rest) noexcept(noexcept(v2 < v1)){
+	// 递归调用：先求前两个的最大值，然后与剩余的参数一起继续求最大值
+	return max(max(v1, v2), v3, rest...);
+}
+
+// ---------------------------------------------------------
+// 获取多个数字最小值的变参版本 (要求至少 3 个参数)
+// ---------------------------------------------------------
+export
+template <small_object T, typename... Rest>
+	requires requires(T t){
+	{ t < t } -> std::convertible_to<bool>;
+	} && (std::same_as<T, Rest> && ...)
+MATH_ATTR constexpr T min(const T v1, const T v2, const T v3, const Rest... rest) noexcept(noexcept(v1 < v2)){
+	// 递归调用：先求前两个的最小值，然后与剩余的参数一起继续求最小值
+	return min(min(v1, v2), v3, rest...);
+}
 
 export
 template <small_object T, typename... Args>
