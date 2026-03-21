@@ -19,6 +19,7 @@ struct string_equal_to{
 	}
 };
 
+
 template <template <typename> typename Comp>
 	requires std::regular_invocable<Comp<std::string_view>, std::string_view, std::string_view>
 struct string_comparator_of{
