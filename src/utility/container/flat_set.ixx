@@ -19,7 +19,7 @@ concept sequence_container = requires(C c, typename C::value_type v) {
 export
 template <
     sequence_container Container,
-    typename Compare = std::equal_to<>
+    typename EqualTo = std::equal_to<>
 >
 requires std::equality_comparable_with<typename Container::value_type, typename Container::value_type>
 class linear_flat_set {
@@ -33,7 +33,7 @@ public:
 
     constexpr linear_flat_set() noexcept(std::is_nothrow_default_constructible_v<Container>) = default;
 
-    constexpr explicit linear_flat_set(Container c, Compare cmp = Compare{})
+    constexpr explicit linear_flat_set(Container c, EqualTo cmp = EqualTo{})
         noexcept(std::is_nothrow_move_constructible_v<Container>)
         : container_(std::move(c)), comparator_(cmp) {
         this->make_unique();
@@ -171,7 +171,7 @@ public:
 
 private:
     Container container_{};
-    ADAPTED_NO_UNIQUE_ADDRESS Compare comparator_{};
+    ADAPTED_NO_UNIQUE_ADDRESS EqualTo comparator_{};
 
     // 使用全限定名调用 ranges 算法
     constexpr auto find_impl(const value_type& value) {
