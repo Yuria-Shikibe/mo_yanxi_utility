@@ -1260,6 +1260,10 @@ namespace mo_yanxi::math{
 			return !this->is_NaN();
 		}
 
+		constexpr bool has_value() const noexcept{
+			return !this->is_NaN();
+		}
+
 		constexpr void reset() noexcept{
 			this->set_NaN();
 		}
