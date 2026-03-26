@@ -169,6 +169,13 @@ public:
         return this->container_.end();
     }
 
+	constexpr void difference_update(const linear_flat_set& other) noexcept(
+			std::is_nothrow_move_assignable_v<value_type>
+		) {
+    	this->modify_and_erase([&other](const value_type& elem) {
+			return other.contains(elem);
+		});
+    }
 private:
     Container container_{};
     ADAPTED_NO_UNIQUE_ADDRESS EqualTo comparator_{};

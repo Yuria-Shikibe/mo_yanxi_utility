@@ -174,6 +174,7 @@ export constexpr inline float pi_2 = pi_2_v<float>;
 
 export constexpr inline float e = std::numbers::e_v<float>;
 export constexpr inline float sqrt2 = std::numbers::sqrt2_v<float>;
+export constexpr inline float sqrt2_inv = 1. / std::numbers::sqrt2_v<double>;
 export constexpr inline float sqrt3 = std::numbers::sqrt3_v<float>;
 
 export constexpr inline float circle_deg_full = 360.0f;
