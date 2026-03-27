@@ -135,5 +135,3 @@ target("mo_yanxi.utility.benchmark")
     add_files("benchmark/**.cpp")
     set_enabled(has_config("add_benchmark"))
 target_end()
-
-includes("xmake2cmake.lua")
