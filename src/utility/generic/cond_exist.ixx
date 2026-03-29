@@ -25,12 +25,12 @@ struct cond_exist{
 	using value_type = T;
 
 	template<typename ...Args>
-		requires std::constructible_from<T, Args&&...>
+		// requires std::constructible_from<T, Args&&...>
 	explicit(false) cond_exist(Args&&... args) noexcept {}
 
 
 	template <typename Fn, typename S, typename ...Args>
-		requires (std::invocable<Fn, S&&, Args&&...>)
+		// requires (std::invocable<Fn, S&&, Args&&...>)
 	constexpr void invoke(this S&& self, Fn&& fn, Args&&... args) noexcept{
 
 	}
