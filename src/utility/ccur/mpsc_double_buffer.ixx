@@ -19,11 +19,20 @@ class mpsc_double_buffer{
 
 public:
 	using container_type = Container;
+	using allocator_type = typename container_type::allocator_type;
 	using value_type = T;
 
-	explicit mpsc_double_buffer(const container_type& init_container = container_type())
+	
+
+	explicit mpsc_double_buffer(const container_type& init_container) requires (std::copy_constructible<T>)
 		: buffers_{init_container, init_container}{
 	}
+
+	explicit mpsc_double_buffer(const allocator_type& init_container)
+		: buffers_{container_type{init_container}, container_type{init_container}}{
+	}
+
+	[[nodiscard]] mpsc_double_buffer() = default;
 
 
 	container_type* fetch() noexcept{

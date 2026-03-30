@@ -7,407 +7,467 @@ export module mo_yanxi.circular_queue;
 
 import std;
 
-namespace mo_yanxi{
-	export
-	template <typename T, bool autoResize = true, std::unsigned_integral SizeType = std::size_t>
-	struct circular_queue{
-		static constexpr bool auto_resize = autoResize;
-		using size_type = SizeType;
-		using value_type = T;
-		using allocator_type = std::allocator<value_type>;
+namespace mo_yanxi {
+export
+template <typename T, bool autoResize = true, std::unsigned_integral SizeType = std::size_t, typename Allocator = std::allocator<T>>
+struct circular_queue {
+    static constexpr bool auto_resize = autoResize;
+	static_assert(std::is_same_v<T, typename std::allocator_traits<Allocator>::value_type>);
 
-		[[nodiscard]] constexpr circular_queue(){
-			this->reserve(8);
-		}
+    using value_type      = T;
+    using allocator_type  = Allocator;
+    using size_type       = SizeType;
+    using difference_type = std::allocator_traits<allocator_type>::difference_type;
+    using pointer         = std::allocator_traits<allocator_type>::pointer;
+    using const_pointer   = std::allocator_traits<allocator_type>::const_pointer;
+    using reference       = value_type&;
+    using const_reference = const value_type&;
 
-		[[nodiscard]] explicit constexpr circular_queue(const size_type length){
-			this->reserve(length);
-		}
+    // --- 构造函数与析构函数 ---
 
-		// 修复：使用 std::ranges::uninitialized_copy 进行安全拷贝，并直接对齐到 head = 0
-		[[nodiscard]] constexpr circular_queue(const circular_queue& other, const size_type length)
-			: data_{std::allocator_traits<allocator_type>::allocate(alloc, length)},
-			  head{0},
-			  tail{(other.size_ == length) ? 0 : other.size_},
-			  size_{other.size_},
-			  capacity_{length} {
+    [[nodiscard]] constexpr circular_queue() noexcept(noexcept(Allocator())) : circular_queue(Allocator()) {}
 
-			size_type first_part_len = std::min(other.size_, other.capacity_ - other.head);
-			std::ranges::uninitialized_copy(
-				other.data_ + other.head,
-				other.data_ + other.head + first_part_len,
-				data_,
-				data_ + first_part_len
-			);
+    [[nodiscard]] explicit constexpr circular_queue(const allocator_type& alloc) noexcept : alloc{alloc} {
+        this->reserve(8);
+    }
 
-			if (other.size_ > first_part_len) {
-				std::ranges::uninitialized_copy(
-					other.data_,
-					other.data_ + (other.size_ - first_part_len),
-					data_ + first_part_len,
-					data_ + other.size_
-				);
-			}
-		}
+    [[nodiscard]] explicit constexpr circular_queue(const size_type length, const allocator_type& alloc = Allocator()) : alloc{alloc} {
+        this->reserve(length);
+    }
 
-		constexpr circular_queue(const circular_queue& other)
-			: circular_queue(other, other.capacity_) {}
+    // 内部帮助构造函数：为给定容量分配空间
+    [[nodiscard]] constexpr circular_queue(const circular_queue& other, const size_type length, const allocator_type& a)
+        : alloc{a},
+          data_{length > 0 ? std::allocator_traits<allocator_type>::allocate(alloc, length) : nullptr},
+          head{0},
+          tail{(other.size_ == length) ? 0 : other.size_},
+          size_{other.size_},
+          capacity_{length}
+    {
+        if (size_ == 0 || length == 0) return;
+        size_type first_part_len = std::min(other.size_, other.capacity_ - other.head);
 
-		constexpr circular_queue(circular_queue&& other) noexcept :
-			data_{std::exchange(other.data_, nullptr)},
-			head{std::exchange(other.head, 0)},
-			tail{std::exchange(other.tail, 0)},
-			size_{std::exchange(other.size_, 0)},
-			capacity_{std::exchange(other.capacity_, 0)} {
-		}
+        this->alloc_copy(std::to_address(other.data_) + other.head,
+                   std::to_address(other.data_) + other.head + first_part_len,
+                   std::to_address(data_));
 
-		// 修复：使用 Copy-and-Swap 惯用法，保证强异常安全性
-		constexpr circular_queue& operator=(const circular_queue& other){
-			if(this == &other) return *this;
-			circular_queue temp(other);
-			std::swap(data_, temp.data_);
-			std::swap(head, temp.head);
-			std::swap(tail, temp.tail);
-			std::swap(size_, temp.size_);
-			std::swap(capacity_, temp.capacity_);
-			return *this;
-		}
+        if (other.size_ > first_part_len) {
+            this->alloc_copy(std::to_address(other.data_),
+                       std::to_address(other.data_) + (other.size_ - first_part_len),
+                       std::to_address(data_) + first_part_len);
+        }
+    }
 
-		constexpr circular_queue& operator=(circular_queue&& other) noexcept{
-			if(this == &other) return *this;
-			std::swap(data_, other.data_);
-			std::swap(head, other.head);
-			std::swap(tail, other.tail);
-			std::swap(size_, other.size_);
-			std::swap(capacity_, other.capacity_);
-			return *this;
-		}
+    constexpr circular_queue(const circular_queue& other)
+        : circular_queue(other, other.capacity_, std::allocator_traits<allocator_type>::select_on_container_copy_construction(other.alloc)) {}
 
-		constexpr ~circular_queue(){
-			destruct();
-			if(data_){
-				std::allocator_traits<allocator_type>::deallocate(alloc, data_, capacity_);
-			}
-		}
+    constexpr circular_queue(const circular_queue& other, const allocator_type& a)
+        : circular_queue(other, other.capacity_, a) {}
 
-		constexpr void push_back(const value_type& val) noexcept(std::is_nothrow_copy_assignable_v<value_type>){
-			tryExpand();
-			std::construct_at(data_ + tail, val);
-			incrTail();
-		}
+    constexpr circular_queue(circular_queue&& other) noexcept
+        : alloc{std::move(other.alloc)},
+          data_{std::exchange(other.data_, nullptr)},
+          head{std::exchange(other.head, 0)},
+          tail{std::exchange(other.tail, 0)},
+          size_{std::exchange(other.size_, 0)},
+          capacity_{std::exchange(other.capacity_, 0)} {}
 
-		constexpr void push_back(value_type&& val) noexcept(std::is_nothrow_move_assignable_v<value_type>){
-			tryExpand();
-			std::construct_at(data_ + tail, std::move(val));
-			incrTail();
-		}
+    constexpr circular_queue(circular_queue&& other, const allocator_type& a) noexcept(std::allocator_traits<allocator_type>::is_always_equal::value)
+        : alloc{a}
+    {
+        if constexpr (std::allocator_traits<allocator_type>::is_always_equal::value) {
+            data_ = std::exchange(other.data_, nullptr);
+            head = std::exchange(other.head, 0);
+            tail = std::exchange(other.tail, 0);
+            size_ = std::exchange(other.size_, 0);
+            capacity_ = std::exchange(other.capacity_, 0);
+        } else {
+            if (a == other.alloc) {
+                data_ = std::exchange(other.data_, nullptr);
+                head = std::exchange(other.head, 0);
+                tail = std::exchange(other.tail, 0);
+                size_ = std::exchange(other.size_, 0);
+                capacity_ = std::exchange(other.capacity_, 0);
+            } else {
+                capacity_ = other.capacity_;
+                size_ = other.size_;
+                head = 0;
+                tail = size_ == capacity_ ? 0 : size_;
+                data_ = capacity_ > 0 ? std::allocator_traits<allocator_type>::allocate(alloc, capacity_) : nullptr;
 
-		constexpr void push_front(const value_type& val) noexcept(std::is_nothrow_copy_assignable_v<value_type>){
-			tryExpand();
-			decrHead();
-			std::construct_at(data_ + head, val);
-		}
+                if (size_ > 0) {
+                    size_type first_part_len = std::min(other.size_, other.capacity_ - other.head);
+                    this->alloc_move(std::to_address(other.data_) + other.head,
+                               std::to_address(other.data_) + other.head + first_part_len,
+                               std::to_address(data_));
+                    if (other.size_ > first_part_len) {
+                        this->alloc_move(std::to_address(other.data_),
+                                   std::to_address(other.data_) + (other.size_ - first_part_len),
+                                   std::to_address(data_) + first_part_len);
+                    }
+                }
+            }
+        }
+    }
 
-		constexpr void push_front(value_type&& val) noexcept(std::is_nothrow_move_assignable_v<value_type>){
-			tryExpand();
-			decrHead();
-			std::construct_at(data_ + head, std::move(val));
-		}
+    constexpr ~circular_queue() {
+        destruct();
+        if (data_) {
+            std::allocator_traits<allocator_type>::deallocate(alloc, data_, capacity_);
+        }
+    }
 
-		template <typename... Args>
-			requires (std::constructible_from<value_type, Args...>)
-		constexpr value_type& emplace_front(Args&&... args) noexcept(std::is_nothrow_constructible_v<value_type, Args...>){
-			tryExpand();
-			decrHead();
-			std::construct_at(data_ + head, std::forward<Args>(args)...);
-			return data_[head];
-		}
+    // --- 赋值运算符 ---
 
-		template <typename... Args>
-			requires (std::constructible_from<value_type, Args...>)
-		constexpr value_type& emplace_back(Args&&... args) noexcept(std::is_nothrow_constructible_v<value_type, Args...>){
-			tryExpand();
-			std::construct_at(data_ + tail, std::forward<Args>(args)...);
-			value_type& rst = data_[tail];
-			incrTail();
-			return rst;
-		}
+    constexpr circular_queue& operator=(const circular_queue& other) {
+        if (this == &other) return *this;
+        if constexpr (std::allocator_traits<allocator_type>::propagate_on_container_copy_assignment::value) {
+            if (alloc != other.alloc) {
+                clear();
+                if (data_) std::allocator_traits<allocator_type>::deallocate(alloc, data_, capacity_);
+                data_ = nullptr;
+                capacity_ = 0;
+            }
+            alloc = other.alloc;
+        }
+        circular_queue temp(other, alloc);
+        std::ranges::swap(data_, temp.data_);
+        std::ranges::swap(head, temp.head);
+        std::ranges::swap(tail, temp.tail);
+        std::ranges::swap(size_, temp.size_);
+        std::ranges::swap(capacity_, temp.capacity_);
+        return *this;
+    }
 
-		// 修复：更名为 reserve (符合 STL 语义)，并重构内存分配逻辑，避免野指针和 UB
-		constexpr void reserve(const size_type newCapacity){
-			if(newCapacity <= capacity_) return; // 环形队列通常不轻易缩容，若需缩容应确保 newCapacity >= size_
+    constexpr circular_queue& operator=(circular_queue&& other) noexcept(
+        std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value ||
+        std::allocator_traits<allocator_type>::is_always_equal::value)
+    {
+        if (this == &other) return *this;
+        clear();
+        if (data_) {
+            std::allocator_traits<allocator_type>::deallocate(alloc, data_, capacity_);
+        }
+        if constexpr (std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value) {
+            alloc = std::move(other.alloc);
+        }
+        data_ = std::exchange(other.data_, nullptr);
+        head = std::exchange(other.head, 0);
+        tail = std::exchange(other.tail, 0);
+        size_ = std::exchange(other.size_, 0);
+        capacity_ = std::exchange(other.capacity_, 0);
+        return *this;
+    }
 
-			auto newData = std::allocator_traits<allocator_type>::allocate(alloc, newCapacity);
+    // --- 分配器访问 ---
 
-			if(!empty()){
-				size_type first_part_len = std::min(size_, capacity_ - head);
-				std::ranges::uninitialized_move(
-					data_ + head,
-					data_ + head + first_part_len,
-					newData,
-					newData + first_part_len
-				);
+    [[nodiscard]] constexpr allocator_type get_allocator() const noexcept {
+        return alloc;
+    }
 
-				if (size_ > first_part_len) {
-					std::ranges::uninitialized_move(
-						data_,
-						data_ + (size_ - first_part_len),
-						newData + first_part_len,
-						newData + size_
-					);
-				}
+    // --- 容量与修改 ---
 
-				destruct();
-				std::allocator_traits<allocator_type>::deallocate(alloc, data_, capacity_);
-			} else if (data_) {
-				std::allocator_traits<allocator_type>::deallocate(alloc, data_, capacity_);
-			}
+    constexpr void reserve(const size_type newCapacity) {
+        if (newCapacity <= capacity_) return;
 
-			data_ = newData;
-			capacity_ = newCapacity;
-			head = 0;
-			// 修复：确保满载扩容时 tail 能够正确 wrap 到 0
-			tail = (size_ == capacity_) ? 0 : size_;
-		}
+        pointer newData = std::allocator_traits<allocator_type>::allocate(alloc, newCapacity);
 
-	private:
-		ADAPTED_NO_UNIQUE_ADDRESS
-		allocator_type alloc{};
+        if (!empty()) {
+            size_type first_part_len = std::min(size_, capacity_ - head);
+            this->alloc_move(std::to_address(data_) + head,
+                       std::to_address(data_) + head + first_part_len,
+                       std::to_address(newData));
 
-		value_type* data_{nullptr};
+            if (size_ > first_part_len) {
+                this->alloc_move(std::to_address(data_),
+                           std::to_address(data_) + (size_ - first_part_len),
+                           std::to_address(newData) + first_part_len);
+            }
 
-		size_type head{};
-		size_type tail{};
-		size_type size_{};
-		size_type capacity_{};
+            destruct();
+            std::allocator_traits<allocator_type>::deallocate(alloc, data_, capacity_);
+        } else if (data_) {
+            std::allocator_traits<allocator_type>::deallocate(alloc, data_, capacity_);
+        }
 
-		// 修复：更安全的 destruct 逻辑，不依赖可能产生二义性的 isReversed()
-		constexpr void destruct() const noexcept{
-			if constexpr(!std::is_trivially_destructible_v<value_type>){
-				if (size_ == 0) return;
-				size_type first_part_len = std::min(size_, capacity_ - head);
-				std::ranges::destroy(data_ + head, data_ + head + first_part_len);
+        data_ = newData;
+        capacity_ = newCapacity;
+        head = 0;
+        tail = (size_ == capacity_) ? 0 : size_;
+    }
 
-				if (size_ > first_part_len) {
-					std::ranges::destroy(data_, data_ + (size_ - first_part_len));
-				}
-			}
-		}
+    constexpr void push_back(const value_type& val) noexcept(std::is_nothrow_copy_assignable_v<value_type>) {
+        tryExpand();
+        std::allocator_traits<allocator_type>::construct(alloc, std::to_address(data_) + tail, val);
+        incrTail();
+    }
 
-		constexpr void incrTail() noexcept{
-			assert(!full());
-			++size_;
-			++tail;
-			if(tail == capacity_){
-				tail = 0;
-			}
-		}
+    constexpr void push_back(value_type&& val) noexcept(std::is_nothrow_move_assignable_v<value_type>) {
+        tryExpand();
+        std::allocator_traits<allocator_type>::construct(alloc, std::to_address(data_) + tail, std::move(val));
+        incrTail();
+    }
 
-		constexpr void tryExpand(){
-			if constexpr(auto_resize){
-				if(full()) this->reserve(std::max<size_type>(capacity_ * 2, 8));
-			} else{
-				assert(!full());
-			}
-		}
+    constexpr void push_front(const value_type& val) noexcept(std::is_nothrow_copy_assignable_v<value_type>) {
+        tryExpand();
+        decrHead();
+        std::allocator_traits<allocator_type>::construct(alloc, std::to_address(data_) + head, val);
+    }
 
-		constexpr void decrHead() noexcept{
-			assert(!full());
-			++size_;
-			if(head == 0){
-				head = capacity_;
-			}
-			--head;
-		}
+    constexpr void push_front(value_type&& val) noexcept(std::is_nothrow_move_assignable_v<value_type>) {
+        tryExpand();
+        decrHead();
+        std::allocator_traits<allocator_type>::construct(alloc, std::to_address(data_) + head, std::move(val));
+    }
 
-	public:
-		[[nodiscard]] constexpr bool empty() const noexcept{
-			return size_ == 0;
-		}
+    template <typename... Args>
+        requires (std::constructible_from<value_type, Args...>)
+    constexpr value_type& emplace_front(Args&&... args) noexcept(std::is_nothrow_constructible_v<value_type, Args...>) {
+        tryExpand();
+        decrHead();
+        std::allocator_traits<allocator_type>::construct(alloc, std::to_address(data_) + head, std::forward<Args>(args)...);
+        return data_[head];
+    }
 
-		[[nodiscard]] constexpr bool full() const noexcept{
-			return size_ == capacity_;
-		}
+    template <typename... Args>
+        requires (std::constructible_from<value_type, Args...>)
+    constexpr value_type& emplace_back(Args&&... args) noexcept(std::is_nothrow_constructible_v<value_type, Args...>) {
+        tryExpand();
+        std::allocator_traits<allocator_type>::construct(alloc, std::to_address(data_) + tail, std::forward<Args>(args)...);
+        value_type& rst = data_[tail];
+        incrTail();
+        return rst;
+    }
 
-		[[nodiscard]] constexpr size_type size() const noexcept{
-			return size_;
-		}
+    constexpr void pop_back() noexcept {
+        assert(!empty());
+        --size_;
+        tail = get_back_index();
+        std::allocator_traits<allocator_type>::destroy(alloc, std::to_address(data_) + tail);
+    }
 
-		[[nodiscard]] constexpr size_type capacity() const noexcept{
-			return capacity_;
-		}
+    constexpr void pop_front() noexcept {
+        assert(!empty());
+        --size_;
+        std::allocator_traits<allocator_type>::destroy(alloc, std::to_address(data_) + head);
+        ++head;
+        if (head == capacity_) {
+            head = 0;
+        }
+    }
 
-		constexpr void clear() noexcept{
-			destruct();
-			head = 0;
-			tail = 0;
-			size_ = 0;
-		}
+    constexpr void clear() noexcept {
+        destruct();
+        head = 0;
+        tail = 0;
+        size_ = 0;
+    }
 
-		[[nodiscard]] constexpr value_type& front() noexcept{
-			assert(!empty());
-			return data_[head];
-		}
+    // ...(此处省略 empty, full, size, capacity, front, back 等等未经改变语义的纯查询代码) ...
+    [[nodiscard]] constexpr bool empty() const noexcept { return size_ == 0; }
+    [[nodiscard]] constexpr bool full() const noexcept { return size_ == capacity_; }
+    [[nodiscard]] constexpr size_type size() const noexcept { return size_; }
+    [[nodiscard]] constexpr size_type capacity() const noexcept { return capacity_; }
 
-		[[nodiscard]] constexpr value_type& back() noexcept{
-			assert(!empty());
-			return data_[get_back_index()];
-		}
+    [[nodiscard]] constexpr value_type& front() noexcept { assert(!empty()); return data_[head]; }
+    [[nodiscard]] constexpr value_type& back() noexcept { assert(!empty()); return data_[get_back_index()]; }
+    [[nodiscard]] constexpr const value_type& front() const noexcept { assert(!empty()); return data_[head]; }
+    [[nodiscard]] constexpr const value_type& back() const noexcept { assert(!empty()); return data_[get_back_index()]; }
 
-		[[nodiscard]] constexpr const value_type& front() const noexcept{
-			assert(!empty());
-			return data_[head];
-		}
+    [[nodiscard]] constexpr size_type get_front_index() const noexcept { return head; }
+    [[nodiscard]] constexpr size_type get_back_index() const noexcept { return (tail == 0 ? capacity_ : tail) - 1; }
 
-		[[nodiscard]] constexpr const value_type& back() const noexcept{
-			assert(!empty());
-			return data_[get_back_index()];
-		}
+    constexpr bool try_pop_back() noexcept {
+        if (empty()) return false;
+        pop_back();
+        return true;
+    }
 
-		[[nodiscard]] constexpr value_type front_or(const value_type& def) const noexcept requires (std::is_trivial_v<value_type>){
-			if(empty())return def;
-			return data_[head];
-		}
+    constexpr bool try_pop_front() noexcept {
+        if (empty()) return false;
+        pop_front();
+        return true;
+    }
 
-		[[nodiscard]] constexpr value_type back_or(const value_type& def) const noexcept requires (std::is_trivial_v<value_type>){
-			if(empty())return def;
-			return data_[get_back_index()];
-		}
+    [[nodiscard]] constexpr value_type retrieve_front() noexcept(std::is_nothrow_move_assignable_v<value_type>) {
+        assert(!empty());
+        value_type ret = std::move(front());
+        pop_front();
+        return ret;
+    }
 
-		[[nodiscard]] constexpr size_type get_front_index() const noexcept{
-			return head;
-		}
+    [[nodiscard]] constexpr value_type retrieve_back() noexcept(std::is_nothrow_move_assignable_v<value_type>) {
+        assert(!empty());
+        value_type ret = std::move(back());
+        pop_back();
+        return ret;
+    }
 
-		[[nodiscard]] constexpr size_type get_back_index() const noexcept{
-			return (tail == 0 ? capacity_ : tail) - 1;
-		}
+    [[nodiscard]] constexpr std::optional<value_type> try_retrieve_front() noexcept(std::is_nothrow_move_assignable_v<value_type>) {
+        if (empty()) return std::nullopt;
+        value_type ret = std::move(front());
+        pop_front();
+        return std::optional<value_type>{std::move(ret)};
+    }
 
-		constexpr void pop_back() noexcept{
-			assert(!empty());
-			--size_;
-			tail = get_back_index();
-			if constexpr(!std::is_trivially_destructible_v<T>){
-				std::destroy_at(data_ + tail);
-			}
-		}
+    [[nodiscard]] constexpr std::optional<value_type> try_retrieve_back() noexcept(std::is_nothrow_move_assignable_v<value_type>) {
+        if (empty()) return std::nullopt;
+        value_type ret = std::move(back());
+        pop_back();
+        return std::optional<value_type>{std::move(ret)};
+    }
 
-		constexpr void pop_front() noexcept{
-			assert(!empty());
-			--size_;
-			if constexpr(!std::is_trivially_destructible_v<T>){
-				std::destroy_at(data_ + head);
-			}
-			++head;
-			if(head == capacity_){
-				head = 0;
-			}
-		}
+    FORCE_INLINE value_type& operator[](size_type index) noexcept {
+        assert(index < size());
+        assert(index < capacity());
+        size_type actual_idx = index + head;
+        if (actual_idx >= capacity_) actual_idx -= capacity_;
+        return data_[actual_idx];
+    }
 
-		constexpr bool try_pop_back() noexcept{
-			if(empty()) return false;
-			pop_back();
-			return true;
-		}
+    FORCE_INLINE const value_type& operator[](size_type index) const noexcept {
+        assert(index < size());
+        assert(index < capacity());
+        size_type actual_idx = index + head;
+        if (actual_idx >= capacity_) actual_idx -= capacity_;
+        return data_[actual_idx];
+    }
 
-		constexpr bool try_pop_front() noexcept{
-			if(empty()) return false;
-			pop_front();
-			return true;
-		}
+    value_type* data_at(size_type index) noexcept {
+        size_type actual_idx = index + head;
+        if (actual_idx >= capacity_) actual_idx -= capacity_;
+        return std::to_address(data_) + actual_idx;
+    }
 
-		[[nodiscard]] constexpr value_type retrieve_front() noexcept(std::is_nothrow_move_assignable_v<value_type>){
-			assert(!empty());
-			value_type ret = std::move(front());
-			pop_front();
-			return ret;
-		}
+    const value_type* data_at(size_type index) const noexcept {
+        size_type actual_idx = index + head;
+        if (actual_idx >= capacity_) actual_idx -= capacity_;
+        return std::to_address(data_) + actual_idx;
+    }
 
-		[[nodiscard]] constexpr value_type retrieve_back() noexcept(std::is_nothrow_move_assignable_v<value_type>){
-			assert(!empty());
-			value_type ret = std::move(back());
-			pop_back();
-			return ret;
-		}
-
-		[[nodiscard]] constexpr std::optional<value_type> try_retrieve_front() noexcept(std::is_nothrow_move_assignable_v<value_type>){
-			if(empty()) return std::nullopt;
-			value_type ret = std::move(front());
-			pop_front();
-			return std::optional<value_type>{std::move(ret)};
-		}
-
-		[[nodiscard]] constexpr std::optional<value_type> try_retrieve_back() noexcept(std::is_nothrow_move_assignable_v<value_type>){
-			if(empty()) return std::nullopt;
-			value_type ret = std::move(back());
-			pop_back();
-			return std::optional<value_type>{std::move(ret)};
-		}
-
-		// 优化：消除 % 运算，转换为更高效的加减法
-		FORCE_INLINE value_type& operator[](size_type index) noexcept{
-			assert(index < size());
-			assert(index < capacity());
-			size_type actual_idx = index + head;
-			if (actual_idx >= capacity_) actual_idx -= capacity_;
-			return data_[actual_idx];
-		}
-
-		FORCE_INLINE const value_type& operator[](size_type index) const noexcept{
-			assert(index < size());
-			assert(index < capacity());
-			size_type actual_idx = index + head;
-			if (actual_idx >= capacity_) actual_idx -= capacity_;
-			return data_[actual_idx];
-		}
-
-		// 优化：补充非 const 版本的 data_at，并消除 % 运算
-		value_type* data_at(size_type index) noexcept{
-			size_type actual_idx = index + head;
-			if (actual_idx >= capacity_) actual_idx -= capacity_;
-			return data_ + actual_idx;
-		}
-
-		const value_type* data_at(size_type index) const noexcept{
-			size_type actual_idx = index + head;
-			if (actual_idx >= capacity_) actual_idx -= capacity_;
-			return data_ + actual_idx;
-		}
-
-		template <std::invocable<size_type, value_type&> Fn>
+	template <std::invocable<size_type, value_type&> Fn>
 		constexpr void for_each(Fn fn) noexcept(std::is_nothrow_invocable_v<Fn, size_type, value_type&>){
-			size_type count{};
-			const size_type first_part_len = std::min(size_, capacity_ - head);
-			for(size_type i = 0; i < first_part_len; ++i){
-				std::invoke(fn, count++, data_[head + i]);
-			}
+    	size_type count{};
+    	const size_type first_part_len = std::min(size_, capacity_ - head);
+    	for(size_type i = 0; i < first_part_len; ++i){
+    		std::invoke(fn, count++, data_[head + i]);
+    	}
 
-			const size_type second_part_len = size_ - first_part_len;
-			for(size_type i = 0; i < second_part_len; ++i){
-				std::invoke(fn, count++, data_[i]);
-			}
-		}
+    	const size_type second_part_len = size_ - first_part_len;
+    	for(size_type i = 0; i < second_part_len; ++i){
+    		std::invoke(fn, count++, data_[i]);
+    	}
+    }
 
-		template <std::invocable<size_type, const value_type&> Fn>
-		constexpr void for_each(Fn fn) const noexcept(std::is_nothrow_invocable_v<Fn, size_type, const value_type&>){
-			size_type count{};
-			const size_type first_part_len = std::min(size_, capacity_ - head);
-			for(size_type i = 0; i < first_part_len; ++i){
-				std::invoke(fn, count++, data_[head + i]);
-			}
+	template <std::invocable<size_type, const value_type&> Fn>
+	constexpr void for_each(Fn fn) const noexcept(std::is_nothrow_invocable_v<Fn, size_type, const value_type&>){
+    	size_type count{};
+    	const size_type first_part_len = std::min(size_, capacity_ - head);
+    	for(size_type i = 0; i < first_part_len; ++i){
+    		std::invoke(fn, count++, data_[head + i]);
+    	}
 
-			const size_type second_part_len = size_ - first_part_len;
-			for(size_type i = 0; i < second_part_len; ++i){
-				std::invoke(fn, count++, data_[i]);
-			}
-		}
+    	const size_type second_part_len = size_ - first_part_len;
+    	for(size_type i = 0; i < second_part_len; ++i){
+    		std::invoke(fn, count++, data_[i]);
+    	}
+    }
 
-	public:
-		friend constexpr void swap(circular_queue& lhs, circular_queue& rhs) noexcept {
-			std::swap(lhs.data_, rhs.data_);
-			std::swap(lhs.head, rhs.head);
-			std::swap(lhs.tail, rhs.tail);
-			std::swap(lhs.size_, rhs.size_);
-			std::swap(lhs.capacity_, rhs.capacity_);
-		}
-	};
-}
+private:
+    ADAPTED_NO_UNIQUE_ADDRESS
+    allocator_type alloc{};
+
+    pointer data_{nullptr};
+    size_type head{};
+    size_type tail{};
+    size_type size_{};
+    size_type capacity_{};
+
+    // --- 内存管理与异常安全 Helper ---
+
+    constexpr void alloc_copy(auto first, auto last, auto d_first) {
+        auto current = d_first;
+        try {
+            for (; first != last; ++first, ++current) {
+                std::allocator_traits<allocator_type>::construct(alloc, std::to_address(current), *first);
+            }
+        } catch (...) {
+            this->alloc_destroy(d_first, current);
+            throw;
+        }
+    }
+
+    constexpr void alloc_move(auto first, auto last, auto d_first) {
+        auto current = d_first;
+        try {
+            for (; first != last; ++first, ++current) {
+                std::allocator_traits<allocator_type>::construct(alloc, std::to_address(current), std::move(*first));
+            }
+        } catch (...) {
+            this->alloc_destroy(d_first, current);
+            throw;
+        }
+    }
+
+    constexpr void alloc_destroy(auto first, auto last) noexcept {
+        for (; first != last; ++first) {
+            std::allocator_traits<allocator_type>::destroy(alloc, std::to_address(first));
+        }
+    }
+
+    constexpr void destruct() noexcept {
+        if constexpr (!std::is_trivially_destructible_v<value_type>) {
+            if (size_ == 0) return;
+            size_type first_part_len = std::min(size_, capacity_ - head);
+            this->alloc_destroy(std::to_address(data_) + head, std::to_address(data_) + head + first_part_len);
+            if (size_ > first_part_len) {
+                this->alloc_destroy(std::to_address(data_), std::to_address(data_) + (size_ - first_part_len));
+            }
+        }
+    }
+
+    constexpr void incrTail() noexcept {
+        assert(!full());
+        ++size_;
+        ++tail;
+        if (tail == capacity_) {
+            tail = 0;
+        }
+    }
+
+    constexpr void tryExpand() {
+        if constexpr (auto_resize) {
+            if (full()) this->reserve(std::max<size_type>(capacity_ * 2, 8));
+        } else {
+            assert(!full());
+        }
+    }
+
+    constexpr void decrHead() noexcept {
+        assert(!full());
+        ++size_;
+        if (head == 0) {
+            head = capacity_;
+        }
+        --head;
+    }
+
+public:
+    friend constexpr void swap(circular_queue& lhs, circular_queue& rhs) noexcept(
+        std::allocator_traits<allocator_type>::propagate_on_container_swap::value ||
+        std::allocator_traits<allocator_type>::is_always_equal::value)
+    {
+        if constexpr (std::allocator_traits<allocator_type>::propagate_on_container_swap::value) {
+            std::ranges::swap(lhs.alloc, rhs.alloc);
+        } else {
+            assert(lhs.alloc == rhs.alloc); // 按照标准，如果不可传播，交换不同分配器的容器是未定义行为
+        }
+        std::ranges::swap(lhs.data_, rhs.data_);
+        std::ranges::swap(lhs.head, rhs.head);
+        std::ranges::swap(lhs.tail, rhs.tail);
+        std::ranges::swap(lhs.size_, rhs.size_);
+        std::ranges::swap(lhs.capacity_, rhs.capacity_);
+    }
+};
+
+} // namespace mo_yanxi
