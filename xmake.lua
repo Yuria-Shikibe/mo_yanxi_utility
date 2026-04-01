@@ -65,7 +65,9 @@ rule_end()
 if has_config("add_test") then add_requires("gtest") end
 if has_config("add_benchmark") then add_requires("benchmark") end
 
-if (get_config("toolchain") ~= "msvc") and has_config("use_libcxx") then
+if (get_config("toolchain") == "msvc") then
+    add_cxflags("/Zc:__cplusplus")
+elseif has_config("use_libcxx") then
     add_requireconfs("*", {configs = {cxflags = "-stdlib=libc++", ldflags = {"-stdlib=libc++", "-lc++abi", "-lunwind"}}})
     add_cxflags("-stdlib=libc++")
     add_ldflags("-stdlib=libc++", "-lc++abi", "-lunwind")
