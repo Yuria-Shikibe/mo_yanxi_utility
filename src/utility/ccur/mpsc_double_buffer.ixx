@@ -22,18 +22,20 @@ public:
 	using allocator_type = typename container_type::allocator_type;
 	using value_type = T;
 
-	
-
-	explicit mpsc_double_buffer(const container_type& init_container) requires (std::copy_constructible<T>)
+	// 使用 is_nothrow_copy_constructible_v 推导 noexcept
+	explicit mpsc_double_buffer(const container_type& init_container)
+		noexcept(std::is_nothrow_copy_constructible_v<container_type>)
+		requires (std::copy_constructible<T>)
 		: buffers_{init_container, init_container}{
 	}
 
-	explicit mpsc_double_buffer(const allocator_type& init_container)
-		: buffers_{container_type{init_container}, container_type{init_container}}{
+	// 使用 is_nothrow_constructible_v 推导 noexcept
+	explicit mpsc_double_buffer(const allocator_type& alloc)
+		noexcept(std::is_nothrow_constructible_v<container_type, const allocator_type&>)
+		: buffers_{container_type{alloc}, container_type{alloc}}{
 	}
 
 	[[nodiscard]] mpsc_double_buffer() = default;
-
 
 	container_type* fetch() noexcept{
 		if((state_.load(std::memory_order_acquire) & HAS_DATA_BIT) == 0){
@@ -56,22 +58,61 @@ public:
 		return std::addressof(buffers_[current_idx]);
 	}
 
-	void push(const T& item){
+	// 使用 declval 嗅探底层 push_back 的异常特性
+	void push(const T& item) noexcept(noexcept(std::declval<container_type&>().push_back(item))){
 		std::uint32_t idx = lock();
-		buffers_[idx].push_back(item);
+		try{
+			buffers_[idx].push_back(item);
+		}catch(...){
+			unlock(); // 如果抛出异常，说明没有成功存入数据，只释放锁，不设置 HAS_DATA_BIT
+			throw;
+		}
+
 		unlock_and_set_data();
 	}
 
-	void push(T&& item){
+	// 使用 declval 嗅探底层 move push_back 的异常特性
+	void push(T&& item) noexcept(noexcept(std::declval<container_type&>().push_back(std::move(item)))){
 		std::uint32_t idx = lock();
-		buffers_[idx].push_back(std::move(item));
+		try{
+			buffers_[idx].push_back(std::move(item));
+		}catch(...){
+			unlock();
+			throw;
+		}
+
 		unlock_and_set_data();
 	}
 
+	// 修复了拼写错误 empalce -> emplace，并补充了 try-catch 和 noexcept 推导
+	template <typename ...Args>
+		requires std::constructible_from<T, Args&&...>
+	void emplace(Args&& ...args) noexcept(noexcept(std::declval<container_type&>().emplace_back(std::forward<Args>(args)...))){
+		std::uint32_t idx = lock();
+		try{
+			buffers_[idx].emplace_back(std::forward<Args>(args)...);
+		}catch(...){
+			unlock();
+			throw;
+		}
+
+		unlock_and_set_data();
+	}
+
+	// 引入万能引用并使用 is_nothrow_invocable_v 探测可调用对象的异常特性，增加 try-catch
 	template <std::invocable<container_type&> Fn>
-	void modify(Fn fn) noexcept(std::is_nothrow_invocable_v<Fn, container_type&>){
+	void modify(Fn&& fn) noexcept(std::is_nothrow_invocable_v<Fn, container_type&>){
 		std::uint32_t idx = lock();
-		std::invoke(fn, buffers_[idx]);
+		if constexpr(std::is_nothrow_invocable_v<Fn, container_type&>){
+			std::invoke(std::forward<Fn>(fn), buffers_[idx]);
+		} else{
+			try{
+				std::invoke(std::forward<Fn>(fn), buffers_[idx]);
+			} catch(...){
+				unlock();
+				throw;
+			}
+		}
 		unlock_and_set_data();
 	}
 
@@ -84,7 +125,9 @@ public:
 
 private:
 	alignas(std::hardware_destructive_interference_size) container_type buffers_[2];
-	alignas(std::hardware_destructive_interference_size) std::atomic<std::uint32_t> state_;
+
+	// 为了允许在 size() const 方法中加解锁，state_ 需要被标记为 mutable
+	alignas(std::hardware_destructive_interference_size) mutable std::atomic<std::uint32_t> state_;
 
 	static constexpr std::uint32_t INDEX_BIT = 1 << 0;
 	static constexpr std::uint32_t LOCK_BIT = 1 << 1;
@@ -98,8 +141,8 @@ private:
 		return state_.load(std::memory_order_relaxed) & INDEX_BIT;
 	}
 
-	// C++20 优化的 wait/notify 锁机制
-	std::uint32_t lock() noexcept{
+	// C++20 优化的 wait/notify 锁机制，为了支持 size() const 标记为 const
+	std::uint32_t lock() const noexcept{
 		std::uint32_t current = state_.load(std::memory_order_relaxed);
 		while(true){
 			if((current & LOCK_BIT) == 0){
@@ -118,14 +161,14 @@ private:
 		}
 	}
 
-	void unlock() noexcept{
+	void unlock() const noexcept{
 		// 持有锁时，其他线程不会修改 state_，直接 load + store 即可
 		std::uint32_t current = state_.load(std::memory_order_relaxed);
 		state_.store(current & ~LOCK_BIT, std::memory_order_release);
 		state_.notify_one();
 	}
 
-	void unlock_and_set_data() noexcept{
+	void unlock_and_set_data() const noexcept{
 		std::uint32_t current = state_.load(std::memory_order_relaxed);
 		// 直接覆盖，省去 do-while CAS 循环
 		std::uint32_t new_state = (current & ~LOCK_BIT) | HAS_DATA_BIT;

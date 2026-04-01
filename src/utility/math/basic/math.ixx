@@ -1039,7 +1039,7 @@ export MATH_ATTR constexpr auto floor(const std::integral auto value, const std:
 
 export
 template <std::integral T = int>
-MATH_ATTR constexpr T floor(const float value, const T step = 1) noexcept{
+MATH_ATTR constexpr T floor(const float value, const T step) noexcept{
 	return static_cast<T>(value / static_cast<float>(step)) * step;
 }
 
