@@ -24,6 +24,10 @@ struct referenced_ptr{
 	using element_type = std::remove_const_t<T>;
 	using pointer = T*;
 
+private:
+
+public:
+
 	[[nodiscard]] constexpr referenced_ptr() = default;
 
 	[[nodiscard]] constexpr explicit(false) referenced_ptr(T& object) : object{std::addressof(object)}{
@@ -56,31 +60,24 @@ struct referenced_ptr{
 		}{
 	}
 
-	// template <std::derived_from<T> Ty>
-	// 	requires (std::is_const_v<T> == std::is_const_v<Ty>)
-	// explicit(false) referenced_ptr(const referenced_ptr<Ty>& other) : referenced_ptr{other.get()}{}
-	//
-	// template <std::derived_from<T> Ty>
-	// 	requires (std::is_const_v<T> == std::is_const_v<Ty>)
-	// explicit(false) referenced_ptr(referenced_ptr<Ty>&& other) : object{std::exchange(other.object, {})}{
-	// }
-
-
 	template <typename Ty>
-		requires requires(Ty& t){
-			requires std::derived_from<std::remove_cvref_t<Ty>, T>;
-			requires std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
-			t.ref_incr();
-		}
-	explicit(false) referenced_ptr(const referenced_ptr<Ty>& other) : referenced_ptr{other.get()}{
+	requires requires(Ty& t) {
+		requires std::convertible_to<Ty*, T*>;
+		requires std::same_as<std::remove_cvref_t<Ty>, std::remove_cvref_t<T>> ||
+				 std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
+		t.ref_incr();
 	}
+	explicit(false) referenced_ptr(const referenced_ptr<Ty>& other) : referenced_ptr{other.get()} {
+	}
+
 	template <typename Ty>
-		requires requires(Ty& t){
-			requires std::derived_from<std::remove_cvref_t<Ty>, T>;
-			requires std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
-			t.ref_incr();
+		requires requires(Ty& t) {
+		requires std::convertible_to<Ty*, T*>;
+		requires std::same_as<std::remove_cvref_t<Ty>, std::remove_cvref_t<T>> ||
+				 std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
+		t.ref_incr();
 		}
-	explicit(false) referenced_ptr(referenced_ptr<Ty>&& other) : referenced_ptr{std::exchange(other.object, {})}{
+	explicit(false) referenced_ptr(referenced_ptr<Ty>&& other) : object{std::exchange(other.object, {})} {
 	}
 
 private:
