@@ -139,6 +139,66 @@ public:
         return true;
     }
 
+	constexpr iterator erase(const_iterator pos) noexcept(std::is_nothrow_swappable_v<value_type>) {
+        // 将 const_iterator 安全地转换为 iterator
+        auto it = this->container_.begin();
+        std::ranges::advance(it, std::ranges::distance(std::as_const(this->container_).begin(), pos));
+
+        if (it == this->container_.end()) {
+            return it;
+        }
+
+        if constexpr (supports_sorted_strategy) {
+            // 有序模式：保持原有相对顺序，将后续元素前移
+            if (this->is_sorted_mode_) {
+                std::ranges::move(std::ranges::next(it), this->container_.end(), it);
+                this->container_.pop_back();
+                this->check_state_transition();
+                return it;
+            }
+        }
+
+        // 线性/混合模式：不需要保持顺序，直接与尾部元素交换后 pop_back
+        if (it != std::ranges::prev(this->container_.end())) {
+            std::ranges::swap(*it, this->container_.back());
+            this->container_.pop_back();
+            this->check_state_transition();
+            return it; // 此时 it 指向被交换过来的原本在尾部的元素
+        }
+
+        // 删除的正好是尾部元素
+        this->container_.pop_back();
+        this->check_state_transition();
+        return this->container_.end();
+    }
+
+    // 如果需要更方便的范围删除 (erase a range)，也可以添加这个：
+    constexpr iterator erase(const_iterator first, const_iterator last) {
+        auto it_first = this->container_.begin();
+        std::ranges::advance(it_first, std::ranges::distance(std::as_const(this->container_).begin(), first));
+
+        auto it_last = this->container_.begin();
+        std::ranges::advance(it_last, std::ranges::distance(std::as_const(this->container_).begin(), last));
+
+        if (it_first == it_last) {
+            return it_first;
+        }
+
+        if constexpr (supports_sorted_strategy) {
+            if (this->is_sorted_mode_) {
+                auto new_end = std::ranges::move(it_last, this->container_.end(), it_first).out;
+                this->container_.erase(new_end, this->container_.end());
+                this->check_state_transition();
+                return it_first;
+            }
+        }
+
+        // 线性模式下批量擦除，直接调用底层容器的 erase 即可，因为反正无序
+        auto ret = this->container_.erase(it_first, it_last);
+        this->check_state_transition();
+        return ret;
+    }
+
     // --- 改 (Update) ---
     constexpr bool update(const value_type& old_val, const value_type& new_val) {
         auto it = this->find_impl(old_val);
