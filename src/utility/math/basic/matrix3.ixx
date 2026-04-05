@@ -264,7 +264,7 @@ public:
 	}
 
 	FORCE_INLINE constexpr matrix3& set_scaling(const value_type scaleX, const value_type scaleY) noexcept{
-		const auto det2 = c1.x * c2.y - c2.y * c1.x;
+		const auto det2 = c1.x * c2.y - c2.x * c1.y;
 
 		c1 *= scaleX / det2;
 		c2 *= scaleY / det2;

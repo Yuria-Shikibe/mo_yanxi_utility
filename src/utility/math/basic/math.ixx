@@ -60,40 +60,59 @@ struct impl{
 };
 }
 
+
 namespace cpo_fma{
+
 template <class T>
-void fma(const T&) noexcept = delete;
+void fma(const T&, const T&, const T&) noexcept = delete;
+
+// 1. 提取 ADL 检查为独立 Concept
+template <typename T1, typename T2, typename T3>
+concept has_adl_fma = requires(T1 v1, T2 v2, T3 v3){
+	{ fma(v1, v2, v3) } noexcept -> std::convertible_to<T1>;
+};
+
+// 2. 提取浮点算术检查为独立 Concept
+// 注意：加入了 requires { typename ... } 防御，防止因为某些类型没有 common_type 而导致编译错误
+template <typename T1, typename T2, typename T3>
+concept is_floating_point_fma =
+	std::is_arithmetic_v<T1> &&
+	std::is_arithmetic_v<T2> &&
+	std::is_arithmetic_v<T3> &&
+	requires { typename std::common_type_t<T1, T2, T3>; } &&
+	std::floating_point<std::common_type_t<T1, T2, T3>>;
 
 struct impl{
+	// 优先级 1: 满足 ADL 自定义实现
 	template <typename T1, typename T2, typename T3>
-		requires requires(T1 v1, T2 v2, T3 v3){
-			{ fma(v1, v2, v3) } noexcept -> std::convertible_to<T1>;
-		}
+	   requires has_adl_fma<T1, T2, T3>
 	[[nodiscard]] CONST_FN FORCE_INLINE static constexpr auto operator()(
-		const T1& a, const T2& b, const T3& c) noexcept{
+	   const T1& a, const T2& b, const T3& c) noexcept{
 		return fma(a, b, c);
 	}
 
+	// 优先级 2: 没有 ADL 实现，且满足公共浮点数条件
 	template <typename T1, typename T2, typename T3>
+	   requires (!has_adl_fma<T1, T2, T3> && is_floating_point_fma<T1, T2, T3>)
 	[[nodiscard]] CONST_FN FORCE_INLINE static constexpr auto operator()(
-		const T1& a, const T2& b, const T3& c) noexcept{
+	   const T1 a, const T2 b, const T3 c) noexcept{
+		using CT = std::common_type_t<T1, T2, T3>;
+		if consteval{
+			return static_cast<CT>(a) * static_cast<CT>(b) + static_cast<CT>(c);
+		}
+		return std::fma(static_cast<CT>(a), static_cast<CT>(b), static_cast<CT>(c));
+	}
+
+	// 优先级 3: 后备方案（既没有 ADL 匹配，也不满足浮点运算时启用）
+	template <typename T1, typename T2, typename T3>
+	   requires (!has_adl_fma<T1, T2, T3> && !is_floating_point_fma<T1, T2, T3>)
+	[[nodiscard]] CONST_FN FORCE_INLINE static constexpr auto operator()(
+	   const T1& a, const T2& b, const T3& c) noexcept{
 		return a * b + c;
 	}
-
-
-	template <std::floating_point T>
-		requires requires(T v1, T v2, T v3){
-			{ std::fma(v1, v2, v3) } noexcept -> std::convertible_to<T>;
-		}
-	[[nodiscard]] CONST_FN FORCE_INLINE static constexpr auto operator()(
-		const T a, const T b, const T c) noexcept{
-		if consteval{
-			return a * b + c;
-		}
-		return std::fma(a, b, c);
-	}
 };
-}
+
+} // namespace cpo_fma
 
 inline namespace cpo{
 export inline constexpr cpo_abs::impl abs;
