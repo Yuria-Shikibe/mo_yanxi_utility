@@ -8,13 +8,7 @@
 #define ADAPTED_NO_UNIQUE_ADDRESS [[no_unique_address]]
 #endif
 
-#if defined(__has_cpp_attribute) && __has_cpp_attribute(indeterminate)
-#define ADAPTED_INDETERMINATE [[indeterminate]]
-#else
-#define ADAPTED_INDETERMINATE
-#endif
-
-#if defined(__GNUC__) || defined(__clang__)
+#if  defined(__clang__)
 	#define FORCE_INLINE [[gnu::always_inline]]
 #elif _MSC_VER
 	#define FORCE_INLINE [[msvc::forceinline]]
@@ -53,16 +47,24 @@
 #endif
 
 
+#if defined(_MSC_VER) && !defined(__clang__)
+	#define ATTR_FLATTEN [[msvc::flatten]]
+	#define ATTR_FORCEINLINE_SENTENCE [[msvc::forceinline_calls]]
 
+// 针对 Clang 编译器
+#elif defined(__clang__)
+	// Clang 支持 GNU 的 flatten 属性，并且在较新版本中支持将 always_inline 作用于语句（调用点）
+	#define ATTR_FLATTEN [[gnu::flatten]]
+	#define ATTR_FORCEINLINE_SENTENCE
 
-#ifdef _MSC_VER
-#define NO_INLINE __declspec(noinline)
-#elif __has_cpp_attribute(gnu::noinline)
-#define NO_INLINE [[gnu::noinline]]
+// 针对 GCC (GNU) 编译器
+#elif defined(__GNUC__)
+	// GCC 支持函数级别的 flatten，但目前没有直接对应于调用点/语句级别的强制内联属性
+	#define ATTR_FLATTEN [[gnu::flatten]]
+	#define ATTR_FORCEINLINE_SENTENCE
+
+// 后备选项（未知或不支持的编译器）
 #else
-#define NO_INLINE
+	#define ATTR_FLATTEN
+	#define ATTR_FORCEINLINE_SENTENCE
 #endif
-
-
-
-
