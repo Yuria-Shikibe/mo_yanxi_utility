@@ -19,6 +19,7 @@ struct string_equal_to{
 	}
 };
 
+
 template <template <typename> typename Comp>
 	requires std::regular_invocable<Comp<std::string_view>, std::string_view, std::string_view>
 struct string_comparator_of{
@@ -75,8 +76,8 @@ template <typename T>
 struct ptr_hasher{
 	using base_type = T;
 	using is_transparent = void;
-	static constexpr std::hash<base_type*> hasher{};
-	constexpr std::size_t operator()(const base_type* a) const noexcept{ return hasher(a); }
+	static constexpr std::hash<const base_type*> hasher{};
+	static constexpr std::size_t operator()(const base_type* a) noexcept{ return hasher(a); }
 
 	template <typename PtrTy>
 		requires(std::equality_comparable_with<decltype(std::to_address(std::declval<PtrTy&>())), base_type*>)

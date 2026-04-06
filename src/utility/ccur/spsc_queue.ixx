@@ -120,6 +120,11 @@ public:
 		return nullptr;
 	}
 
+	bool empty() const noexcept{
+		std::lock_guard lock(m_mutex);
+		return m_queue.empty();
+	}
+
 
 	template <std::predicate<> ExitPred>
 	[[nodiscard]] bool pop_front(ExitPred exit_pred) noexcept{
@@ -151,15 +156,15 @@ public:
 
 	[[nodiscard]] bool swap(Cont& cont) noexcept(std::is_nothrow_move_constructible_v<value_type>){
 		std::lock_guard lock(m_mutex);
-
+		
 		if(m_queue.empty())return false;
-		std::swap(m_queue, cont);
+		std::ranges::swap(m_queue, cont);
 		return true;
 	}
 
 private:
 	Cont m_queue{};
-	std::mutex m_mutex{};
+	mutable std::mutex m_mutex{};
 	ccur::condition_variable_single m_cond{};
 };
 }

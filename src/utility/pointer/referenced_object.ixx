@@ -24,6 +24,10 @@ struct referenced_ptr{
 	using element_type = std::remove_const_t<T>;
 	using pointer = T*;
 
+private:
+
+public:
+
 	[[nodiscard]] constexpr referenced_ptr() = default;
 
 	[[nodiscard]] constexpr explicit(false) referenced_ptr(T& object) : object{std::addressof(object)}{
@@ -56,31 +60,24 @@ struct referenced_ptr{
 		}{
 	}
 
-	// template <std::derived_from<T> Ty>
-	// 	requires (std::is_const_v<T> == std::is_const_v<Ty>)
-	// explicit(false) referenced_ptr(const referenced_ptr<Ty>& other) : referenced_ptr{other.get()}{}
-	//
-	// template <std::derived_from<T> Ty>
-	// 	requires (std::is_const_v<T> == std::is_const_v<Ty>)
-	// explicit(false) referenced_ptr(referenced_ptr<Ty>&& other) : object{std::exchange(other.object, {})}{
-	// }
-
-
 	template <typename Ty>
-		requires requires(Ty& t){
-			requires std::derived_from<std::remove_cvref_t<Ty>, T>;
-			requires std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
-			t.ref_incr();
-		}
-	explicit(false) referenced_ptr(const referenced_ptr<Ty>& other) : referenced_ptr{other.get()}{
+	requires requires(Ty& t) {
+		requires std::convertible_to<Ty*, T*>;
+		requires std::same_as<std::remove_cvref_t<Ty>, std::remove_cvref_t<T>> ||
+				 std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
+		t.ref_incr();
 	}
+	explicit(false) referenced_ptr(const referenced_ptr<Ty>& other) : referenced_ptr{other.get()} {
+	}
+
 	template <typename Ty>
-		requires requires(Ty& t){
-			requires std::derived_from<std::remove_cvref_t<Ty>, T>;
-			requires std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
-			t.ref_incr();
+		requires requires(Ty& t) {
+		requires std::convertible_to<Ty*, T*>;
+		requires std::same_as<std::remove_cvref_t<Ty>, std::remove_cvref_t<T>> ||
+				 std::has_virtual_destructor_v<std::remove_cvref_t<T>>;
+		t.ref_incr();
 		}
-	explicit(false) referenced_ptr(referenced_ptr<Ty>&& other) : referenced_ptr{std::exchange(other.object, {})}{
+	explicit(false) referenced_ptr(referenced_ptr<Ty>&& other) : object{std::exchange(other.object, {})} {
 	}
 
 private:
@@ -283,25 +280,29 @@ export
 /**
  * @warning Must test with external lifetime manage
  * does not propagate reference count on copy/move
+ *
+ * the copy/move construct is used for insert to map init with protection only!!
  */
-struct referenced_object_atomic_nonpropagation{
+struct referenced_object_atomic{
 
 private:
 	std::atomic_size_t reference_count_{};
 
 public:
-	[[nodiscard]] referenced_object_atomic_nonpropagation() = default;
+	[[nodiscard]] referenced_object_atomic() = default;
 
-	referenced_object_atomic_nonpropagation(const referenced_object_atomic_nonpropagation& other) noexcept{}
+	referenced_object_atomic(const referenced_object_atomic& other) noexcept : reference_count_(other.reference_count_.load(std::memory_order::relaxed)){}
 
-	referenced_object_atomic_nonpropagation& operator=(const referenced_object_atomic_nonpropagation& other) noexcept {
+	referenced_object_atomic& operator=(const referenced_object_atomic& other) noexcept {
+		reference_count_.store(other.reference_count_.load(std::memory_order::relaxed), std::memory_order_release);
 		return *this;
 	}
 
-	referenced_object_atomic_nonpropagation(referenced_object_atomic_nonpropagation&& other) noexcept {
+	referenced_object_atomic(referenced_object_atomic&& other) noexcept : reference_count_(other.reference_count_.exchange(0, std::memory_order::acq_rel)) {
 	}
 
-	referenced_object_atomic_nonpropagation& operator=(referenced_object_atomic_nonpropagation&& other) noexcept{
+	referenced_object_atomic& operator=(referenced_object_atomic&& other) noexcept{
+		reference_count_.store(other.reference_count_.exchange(0, std::memory_order::acq_rel), std::memory_order_release);
 		return *this;
 	}
 

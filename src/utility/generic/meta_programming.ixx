@@ -245,12 +245,14 @@ template <typename C, typename T>
 struct mptr_info<T C::*>{
 	using class_type = C;
 	using value_type = T;
+	using class_access_type = class_type;
 };
 
 
 template <typename C, typename T, typename... Args>
 struct mptr_info<T (C::*)(Args...)>{
 	using class_type = C;
+	using class_access_type = class_type;
 	using value_type = T;
 	using func_args = std::tuple<Args...>;
 };
@@ -258,6 +260,7 @@ struct mptr_info<T (C::*)(Args...)>{
 //
 template <typename C, typename T, typename... Args>
 struct mptr_info<T (C::*)(Args...) const> : mptr_info<T (C::*)(Args...)>{
+	using class_access_type = const C;
 };
 
 template <typename C, typename T, typename... Args>
@@ -270,10 +273,12 @@ struct mptr_info<T (C::*)(Args...) &&> : mptr_info<T (C::*)(Args...)>{
 
 template <typename C, typename T, typename... Args>
 struct mptr_info<T (C::*)(Args...) const &> : mptr_info<T (C::*)(Args...)>{
+	using class_access_type = const C;
 };
 
 template <typename C, typename T, typename... Args>
 struct mptr_info<T (C::*)(Args...) const noexcept> : mptr_info<T (C::*)(Args...)>{
+	using class_access_type = const C;
 };
 
 template <typename C, typename T, typename... Args>
@@ -286,6 +291,7 @@ struct mptr_info<T (C::*)(Args...) && noexcept> : mptr_info<T (C::*)(Args...)>{
 
 template <typename C, typename T, typename... Args>
 struct mptr_info<T (C::*)(Args...) const & noexcept> : mptr_info<T (C::*)(Args...)>{
+	using class_access_type = const C;
 };
 
 export
@@ -389,3 +395,5 @@ public:
 };
 
 }
+
+

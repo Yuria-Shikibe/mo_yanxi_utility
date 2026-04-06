@@ -60,40 +60,59 @@ struct impl{
 };
 }
 
+
 namespace cpo_fma{
+
 template <class T>
-void fma(const T&) noexcept = delete;
+void fma(const T&, const T&, const T&) noexcept = delete;
+
+// 1. 提取 ADL 检查为独立 Concept
+template <typename T1, typename T2, typename T3>
+concept has_adl_fma = requires(T1 v1, T2 v2, T3 v3){
+	{ fma(v1, v2, v3) } noexcept -> std::convertible_to<T1>;
+};
+
+// 2. 提取浮点算术检查为独立 Concept
+// 注意：加入了 requires { typename ... } 防御，防止因为某些类型没有 common_type 而导致编译错误
+template <typename T1, typename T2, typename T3>
+concept is_floating_point_fma =
+	std::is_arithmetic_v<T1> &&
+	std::is_arithmetic_v<T2> &&
+	std::is_arithmetic_v<T3> &&
+	requires { typename std::common_type_t<T1, T2, T3>; } &&
+	std::floating_point<std::common_type_t<T1, T2, T3>>;
 
 struct impl{
+	// 优先级 1: 满足 ADL 自定义实现
 	template <typename T1, typename T2, typename T3>
-		requires requires(T1 v1, T2 v2, T3 v3){
-			{ fma(v1, v2, v3) } noexcept -> std::convertible_to<T1>;
-		}
+	   requires has_adl_fma<T1, T2, T3>
 	[[nodiscard]] CONST_FN FORCE_INLINE static constexpr auto operator()(
-		const T1& a, const T2& b, const T3& c) noexcept{
+	   const T1& a, const T2& b, const T3& c) noexcept{
 		return fma(a, b, c);
 	}
 
+	// 优先级 2: 没有 ADL 实现，且满足公共浮点数条件
 	template <typename T1, typename T2, typename T3>
+	   requires (!has_adl_fma<T1, T2, T3> && is_floating_point_fma<T1, T2, T3>)
 	[[nodiscard]] CONST_FN FORCE_INLINE static constexpr auto operator()(
-		const T1& a, const T2& b, const T3& c) noexcept{
+	   const T1 a, const T2 b, const T3 c) noexcept{
+		using CT = std::common_type_t<T1, T2, T3>;
+		if consteval{
+			return static_cast<CT>(a) * static_cast<CT>(b) + static_cast<CT>(c);
+		}
+		return std::fma(static_cast<CT>(a), static_cast<CT>(b), static_cast<CT>(c));
+	}
+
+	// 优先级 3: 后备方案（既没有 ADL 匹配，也不满足浮点运算时启用）
+	template <typename T1, typename T2, typename T3>
+	   requires (!has_adl_fma<T1, T2, T3> && !is_floating_point_fma<T1, T2, T3>)
+	[[nodiscard]] CONST_FN FORCE_INLINE static constexpr auto operator()(
+	   const T1& a, const T2& b, const T3& c) noexcept{
 		return a * b + c;
 	}
-
-
-	template <std::floating_point T>
-		requires requires(T v1, T v2, T v3){
-			{ std::fma(v1, v2, v3) } noexcept -> std::convertible_to<T>;
-		}
-	[[nodiscard]] CONST_FN FORCE_INLINE static constexpr auto operator()(
-		const T a, const T b, const T c) noexcept{
-		if consteval{
-			return a * b + c;
-		}
-		return std::fma(a, b, c);
-	}
 };
-}
+
+} // namespace cpo_fma
 
 inline namespace cpo{
 export inline constexpr cpo_abs::impl abs;
@@ -174,6 +193,7 @@ export constexpr inline float pi_2 = pi_2_v<float>;
 
 export constexpr inline float e = std::numbers::e_v<float>;
 export constexpr inline float sqrt2 = std::numbers::sqrt2_v<float>;
+export constexpr inline float sqrt2_inv = 1. / std::numbers::sqrt2_v<double>;
 export constexpr inline float sqrt3 = std::numbers::sqrt3_v<float>;
 
 export constexpr inline float circle_deg_full = 360.0f;
@@ -525,11 +545,11 @@ template <small_object T>
 		{ t < t } -> std::convertible_to<bool>;
 	}
 MATH_ATTR constexpr T max(const T v1, const T v2) noexcept(noexcept(v2 < v1)){
-	if constexpr(std::floating_point<T>){
-		if !consteval{
-			return std::fmax(v1, v2);
-		}
-	}
+	// if constexpr(std::floating_point<T>){
+	// 	if !consteval{
+	// 		return std::fmax(v1, v2);
+	// 	}
+	// }
 
 	return v2 < v1 ? v1 : v2;
 }
@@ -549,6 +569,31 @@ MATH_ATTR constexpr T min(const T v1, const T v2) noexcept(noexcept(v1 < v2)){
 	return v1 < v2 ? v1 : v2;
 }
 
+// ---------------------------------------------------------
+// 获取多个数字最大值的变参版本 (要求至少 3 个参数)
+// ---------------------------------------------------------
+export
+template <small_object T, typename... Rest>
+	requires requires(T t){
+	{ t < t } -> std::convertible_to<bool>;
+	} && (std::same_as<T, Rest> && ...)
+MATH_ATTR constexpr T max(const T v1, const T v2, const T v3, const Rest... rest) noexcept(noexcept(v2 < v1)){
+	// 递归调用：先求前两个的最大值，然后与剩余的参数一起继续求最大值
+	return max(max(v1, v2), v3, rest...);
+}
+
+// ---------------------------------------------------------
+// 获取多个数字最小值的变参版本 (要求至少 3 个参数)
+// ---------------------------------------------------------
+export
+template <small_object T, typename... Rest>
+	requires requires(T t){
+	{ t < t } -> std::convertible_to<bool>;
+	} && (std::same_as<T, Rest> && ...)
+MATH_ATTR constexpr T min(const T v1, const T v2, const T v3, const Rest... rest) noexcept(noexcept(v1 < v2)){
+	// 递归调用：先求前两个的最小值，然后与剩余的参数一起继续求最小值
+	return min(min(v1, v2), v3, rest...);
+}
 
 export
 template <small_object T, typename... Args>
@@ -1013,7 +1058,7 @@ export MATH_ATTR constexpr auto floor(const std::integral auto value, const std:
 
 export
 template <std::integral T = int>
-MATH_ATTR constexpr T floor(const float value, const T step = 1) noexcept{
+MATH_ATTR constexpr T floor(const float value, const T step) noexcept{
 	return static_cast<T>(value / static_cast<float>(step)) * step;
 }
 

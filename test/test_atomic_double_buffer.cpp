@@ -4,13 +4,13 @@
 #include <chrono>
 #include <atomic>
 
-import mo_yanxi.concurrent.atomic_double_buffer;
+import mo_yanxi.concurrent.swmr_double_buffer;
 import std;
 
 using namespace mo_yanxi::ccur;
 
 TEST(AtomicDoubleBufferTest, BasicStoreAndLoad) {
-    atomic_double_buffer<int> buffer;
+    swmr_double_buffer<int> buffer;
     buffer.store(42);
 
     int loaded_value = 0;
@@ -28,7 +28,7 @@ TEST(AtomicDoubleBufferTest, BasicStoreAndLoad) {
 }
 
 TEST(AtomicDoubleBufferTest, Modify) {
-    atomic_double_buffer<int> buffer;
+    swmr_double_buffer<int> buffer;
     // modify gives access to the *back* buffer, which may contain stale data.
     // We must overwrite it fully or handle the staleness.
 
@@ -44,7 +44,7 @@ TEST(AtomicDoubleBufferTest, Modify) {
 }
 
 TEST(AtomicDoubleBufferTest, LoadLatest) {
-    atomic_double_buffer<int> buffer;
+    swmr_double_buffer<int> buffer;
     buffer.store(1);
 
     std::atomic<bool> ready{false};
@@ -66,7 +66,7 @@ TEST(AtomicDoubleBufferTest, LoadLatest) {
 }
 
 TEST(AtomicDoubleBufferTest, SPSC) {
-    atomic_double_buffer<int> buffer;
+    swmr_double_buffer<int> buffer;
     buffer.store(-1); // Initial value
     const int iterations = 10000;
     std::atomic<bool> done{false};
@@ -112,7 +112,7 @@ struct BigData {
 };
 
 TEST(AtomicDoubleBufferTest, SPMC_Tearing) {
-    atomic_double_buffer<BigData> buffer;
+    swmr_double_buffer<BigData> buffer;
     buffer.store({0, 0, 0, 0});
     const int iterations = 100000;
     std::atomic<bool> done{false};

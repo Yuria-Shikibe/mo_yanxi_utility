@@ -1,11 +1,11 @@
-export module mo_yanxi.concurrent.atomic_double_buffer;
+export module mo_yanxi.concurrent.swmr_double_buffer;
 
 import std;
 
 namespace mo_yanxi::ccur {
     export
     template <typename T>
-    struct atomic_double_buffer {
+    struct swmr_double_buffer {
         using value_type = T;
     private:
         using atomic_value_type = unsigned;
@@ -183,14 +183,14 @@ namespace mo_yanxi::ccur {
 
     export
     template <typename T>
-    struct atomic_double_buffer_no_propagate : atomic_double_buffer<T> {
-        atomic_double_buffer_no_propagate() = default;
-        atomic_double_buffer_no_propagate(const atomic_double_buffer_no_propagate& other) noexcept {}
-        atomic_double_buffer_no_propagate(atomic_double_buffer_no_propagate&& other) noexcept {}
-        atomic_double_buffer_no_propagate& operator=(const atomic_double_buffer_no_propagate& other) noexcept {
+    struct swmr_double_buffer_no_propagate : swmr_double_buffer<T> {
+        swmr_double_buffer_no_propagate() = default;
+        swmr_double_buffer_no_propagate(const swmr_double_buffer_no_propagate& other) noexcept {}
+        swmr_double_buffer_no_propagate(swmr_double_buffer_no_propagate&& other) noexcept {}
+        swmr_double_buffer_no_propagate& operator=(const swmr_double_buffer_no_propagate& other) noexcept {
             return *this;
         }
-        atomic_double_buffer_no_propagate& operator=(atomic_double_buffer_no_propagate&& other) noexcept {
+        swmr_double_buffer_no_propagate& operator=(swmr_double_buffer_no_propagate&& other) noexcept {
             return *this;
         }
     };
