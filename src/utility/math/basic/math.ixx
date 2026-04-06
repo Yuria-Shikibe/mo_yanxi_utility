@@ -221,27 +221,96 @@ constexpr inline double BIG_ENOUGH_ROUND = static_cast<double>(BIG_ENOUGH_INT) +
 export using progress_t = float;
 
 export
+template <arithmetic T>
+constexpr bool isinf(T val) noexcept{
+	if constexpr(std::floating_point<T>){
+		if consteval{
+			return abs(val) > std::numeric_limits<T>::max();
+		}
+	}
+
+	return std::isinf(val);
+}
+
+export
+template <arithmetic T>
+constexpr bool isnan(T val) noexcept{
+	if constexpr(std::floating_point<T>){
+		if consteval{
+			return val != val;
+		}
+	}
+
+	return std::isnan(val);
+}
+
+export
+template <typename T>
+MATH_ATTR constexpr bool signbit(T val) noexcept{
+	if consteval{
+		if constexpr (std::floating_point<T>){
+			if constexpr (std::is_same_v<T, float>) {
+				const std::uint32_t bits = std::bit_cast<std::uint32_t>(val);
+				const std::uint32_t mask = 1 << std::numeric_limits<std::int32_t>::digits;
+				return static_cast<bool>(bits & mask);
+			} else if constexpr (std::is_same_v<T, double>) {
+				// double 为 64 位，符号位在第 63 位（最高位）
+				const std::uint64_t bits = std::bit_cast<std::uint64_t>(val);
+				const std::uint64_t mask = 1 << std::numeric_limits<std::int64_t>::digits;
+				return static_cast<bool>(bits & mask);
+			}else{
+				//not accurate for long double, anyway I never use that
+				return val < 0;
+			}
+		}else{
+			return val < 0;
+		}
+	} else{
+		return std::signbit(val);
+	}
+}
+
+export
+template <typename T>
+MATH_ATTR constexpr T copysign(T val, T sgn) noexcept{
+	if consteval{
+		return math::signbit(sgn) ? -val : val;
+	} else{
+		return std::copysign(val, sgn);
+	}
+}
+
+template <typename T>
+[[nodiscard]] MATH_ATTR constexpr T conditional_negate(T x, bool flip) noexcept {
+	static_assert(!std::is_unsigned_v<T>);
+
+	if constexpr (std::is_floating_point_v<T>){
+		assert(!math::isnan(x) && "Input cannot be NaN");
+	}else if constexpr (std::is_integral_v<T>){
+		assert((x != std::numeric_limits<T>::min() || !flip) && "Input cannot be NaN");
+	}
+
+	if constexpr (std::is_same_v<T, float>) {
+		static_assert(std::numeric_limits<T>::is_iec559, "Requires IEEE 754 format.");
+		const std::uint32_t bits = std::bit_cast<std::uint32_t>(x);
+		const std::uint32_t mask = static_cast<std::uint32_t>(flip) << std::numeric_limits<std::int32_t>::digits;
+		return std::bit_cast<float>(bits ^ mask);
+	} else if constexpr (std::is_same_v<T, double>) {
+		static_assert(std::numeric_limits<T>::is_iec559, "Requires IEEE 754 format.");
+		const std::uint64_t bits = std::bit_cast<std::uint64_t>(x);
+		const std::uint64_t mask = static_cast<std::uint64_t>(flip) << std::numeric_limits<std::int64_t>::digits;
+		return std::bit_cast<double>(bits ^ mask);
+	} else {
+		return flip ? -x : x;
+	}
+}
+
+export
 template <typename T>
 struct cos_sin_result{
 	T cos;
 	T sin;
 };
-
-template <std::floating_point T>
-constexpr inline T inv_two_pi = 1 / pi_2_v<T>;
-/**
- * 将角度规约到 [-pi, pi] 区间
- * 注意：使用了简单的算术取整，追求速度而非极高精度
- */
-template <std::floating_point T>
-MATH_ATTR constexpr T reduce_angle(T x) noexcept {
-    if (x >= -std::numbers::pi_v<T> && x <= std::numbers::pi_v<T>) {
-        return x;
-    }
-
-    T quotient = static_cast<long long>(x * inv_two_pi<T> + (x >= 0 ? 0.5 : -0.5));
-    return x - quotient * pi_2_v<T>;
-}
 
 template <std::floating_point T>
 MATH_ATTR constexpr T poly_sin_impl(T x2) noexcept {
@@ -253,33 +322,50 @@ MATH_ATTR constexpr T poly_cos_impl(T x2) noexcept {
     return T(1.0) + x2 * (T(-0.5) + x2 * (T(0.0416664568) + x2 * (T(-0.00138873163) + x2 * T(0.0000244331571))));
 }
 
+template <std::floating_point T>
+struct reduce_pi_result {
+	T x_reduced;
+	bool signbit;
+};
+
+template <std::floating_point T>
+MATH_ATTR constexpr reduce_pi_result<T> reduce_angle_pi(T x) noexcept {
+	std::int64_t quotient = static_cast<std::int64_t>(math::fma(x, std::numbers::inv_pi_v<T>, math::copysign(T(0.5), x)));
+	T x_reduced = x - static_cast<T>(quotient) * std::numbers::pi_v<T>;
+	bool sign = quotient & 1;
+	return {x_reduced, sign};
+}
+
 export
 template <std::floating_point T>
 MATH_ATTR constexpr T sin(T x) noexcept {
-    T x_reduced = math::reduce_angle(x);
-    T x2 = x_reduced * x_reduced;
-    return x_reduced * math::poly_sin_impl(x2);
+	auto [x_reduced, sign] = math::reduce_angle_pi(x);
+	T x2 = x_reduced * x_reduced;
+
+	return math::conditional_negate(x_reduced, sign) * math::poly_sin_impl(x2);
 }
 
 export
 template <std::floating_point T>
 MATH_ATTR constexpr T cos(T x) noexcept {
-    T x_reduced = math::reduce_angle(x);
-    T x2 = x_reduced * x_reduced;
-    return math::poly_cos_impl(x2);
+	auto [x_reduced, sign] = math::reduce_angle_pi(x);
+	T x2 = x_reduced * x_reduced;
+
+	return math::conditional_negate(math::poly_cos_impl(x2), sign);
 }
 
 export
 template <std::floating_point T>
 MATH_ATTR constexpr cos_sin_result<T> cos_sin(T x) noexcept {
-    T x_reduced = math::reduce_angle(x);
-    T x2 = x_reduced * x_reduced;
+	auto [x_reduced, sign] = math::reduce_angle_pi(x);
+	T x2 = x_reduced * x_reduced;
 
-    T c = math::poly_cos_impl(x2);
-    T s = x_reduced * math::poly_sin_impl(x2);
+	T c = math::conditional_negate(math::poly_cos_impl(x2), sign);
+	T s = math::conditional_negate(x_reduced, sign) * math::poly_sin_impl(x2);
 
-    return {c, s};
+	return {c, s};
 }
+
 
 export
 template <std::floating_point T>
@@ -328,16 +414,6 @@ export MATH_ATTR constexpr float tan(const float radians, const float scl, const
 
 export MATH_ATTR constexpr float cos(const float radians, const float scl, const float mag) noexcept{
 	return cos(radians / scl) * mag;
-}
-
-export
-template <typename T>
-MATH_ATTR constexpr T copysign(T val, T sgn) noexcept{
-	if consteval{
-		return sgn < 0 ? -val : val;
-	} else{
-		return std::copysign(val, sgn);
-	}
 }
 
 
@@ -449,29 +525,7 @@ export MATH_ATTR constexpr double atn(const double i) noexcept{
 			         0.0117212 * c11), i);
 }
 
-export
-template <arithmetic T>
-constexpr bool isinf(T val) noexcept{
-	if constexpr(std::floating_point<T>){
-		if consteval{
-			return abs(val) > std::numeric_limits<T>::max();
-		}
-	}
 
-	return std::isinf(val);
-}
-
-export
-template <arithmetic T>
-constexpr bool isnan(T val) noexcept{
-	if constexpr(std::floating_point<T>){
-		if consteval{
-			return !(abs(val) <= std::numeric_limits<T>::infinity());
-		}
-	}
-
-	return std::isnan(val);
-}
 
 /** Close approximation of the frequently-used trigonometric method atan2, with higher precision than libGDX's atan2
  * approximation. Average error is 1.057E-6 radians; maximum error is 1.922E-6. Takes y and x (in that unusual order) as
