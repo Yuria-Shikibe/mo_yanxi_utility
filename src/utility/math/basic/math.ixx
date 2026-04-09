@@ -1122,6 +1122,34 @@ MATH_ATTR constexpr T floor(const float value) noexcept{
 	return static_cast<T>(value);
 }
 
+template <std::floating_point FloatType>
+constexpr FloatType floor(FloatType x) {
+	if consteval{
+		if (x != x) {
+			return x;
+		}
+
+		constexpr FloatType max_safe_int = static_cast<FloatType>(9007199254740991LL);
+		if (x >= max_safe_int || x <= -max_safe_int) {
+			return x;
+		}
+
+
+		std::int64_t i = static_cast<std::int64_t>(x);
+		FloatType truncated = static_cast<FloatType>(i);
+
+
+		if (truncated == x) {
+			return x;
+		}
+
+		return (x > 0) ? truncated : (truncated - 1);
+	}else{
+		return std::floor(x);
+	}
+
+}
+
 export
 template <mo_yanxi::arithmetic T>
 MATH_ATTR T round(const T num, const T step){
