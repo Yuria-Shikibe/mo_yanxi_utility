@@ -251,12 +251,12 @@ MATH_ATTR constexpr bool signbit(T val) noexcept{
 		if constexpr (std::floating_point<T>){
 			if constexpr (std::is_same_v<T, float>) {
 				const std::uint32_t bits = std::bit_cast<std::uint32_t>(val);
-				const std::uint32_t mask = 1 << std::numeric_limits<std::int32_t>::digits;
+				const std::uint32_t mask = 1U << std::numeric_limits<std::int32_t>::digits;
 				return static_cast<bool>(bits & mask);
 			} else if constexpr (std::is_same_v<T, double>) {
 				// double 为 64 位，符号位在第 63 位（最高位）
 				const std::uint64_t bits = std::bit_cast<std::uint64_t>(val);
-				const std::uint64_t mask = 1 << std::numeric_limits<std::int64_t>::digits;
+				const std::uint64_t mask = 1ULL << std::numeric_limits<std::int64_t>::digits;
 				return static_cast<bool>(bits & mask);
 			}else{
 				//not accurate for long double, anyway I never use that

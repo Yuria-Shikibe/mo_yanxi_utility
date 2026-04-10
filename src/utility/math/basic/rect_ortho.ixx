@@ -808,6 +808,9 @@ public:
 	[[nodiscard]] FORCE_INLINE constexpr T is_zero_area() const noexcept{
 		return !size_.x || !size_.y;
 	}
+	[[nodiscard]] FORCE_INLINE constexpr T is_roughly_zero_area(T margin) const noexcept requires(std::floating_point<T>){
+		return size_.x < margin || size_.y < margin;
+	}
 
 	[[nodiscard]] FORCE_INLINE constexpr T is_point(T margin) const noexcept{
 		return size_.is_zero(margin);

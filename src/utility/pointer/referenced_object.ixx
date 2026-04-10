@@ -90,6 +90,13 @@ private:
 	void incr() noexcept;
 
 public:
+	template <typename U, typename DU>
+	friend constexpr bool operator==(const referenced_ptr& lhs, const referenced_ptr<U, DU>& rhs) noexcept {
+		return lhs.get() == rhs.get();
+	}
+
+
+
 	explicit constexpr operator bool() const noexcept{
 		return object != nullptr;
 	}
@@ -159,7 +166,6 @@ public:
 		return object == nullptr;
 	}
 
-	constexpr bool operator==(const referenced_ptr&) const noexcept = default;
 
 	explicit(false) operator referenced_ptr<const T, D>() const noexcept requires (!std::is_const_v<T> && requires(const T& t){
 		t.ref_incr();
