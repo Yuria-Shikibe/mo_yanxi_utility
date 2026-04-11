@@ -1601,4 +1601,12 @@ template <typename T, arithmetic V>
 		return val * (scl / abs);
 	}
 }
+
+export
+template <std::unsigned_integral T>
+constexpr T align_up(T size, std::type_identity_t<T> alignment) noexcept {
+	assert(std::has_single_bit(alignment));
+	return (size + alignment - 1) & ~(alignment - 1);
+}
+
 }

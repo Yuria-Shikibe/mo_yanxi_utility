@@ -304,28 +304,6 @@ concept default_hashable = requires(const T& t){
 };
 
 
-/*
-template <bool Test, class T>
-struct ConstConditional{
-	using type = T;
-};
-
-
-template <class T>
-struct ConstConditional<true, T>{
-	using type = std::add_const_t<T>;
-};
-
-
-template <class T>
-struct ConstConditional<true, T&>{
-	using type = std::add_lvalue_reference_t<std::add_const_t<T>>;
-};
-
-
-template <typename T>
-constexpr bool isConstRef = std::is_const_v<std::remove_reference_t<T>>;*/
-
 template <typename T>
 struct is_const_lvalue_reference{
 	static constexpr bool value = false;
@@ -346,6 +324,7 @@ struct is_const_lvalue_reference<const volatile T&>{
 	static constexpr bool value = true;
 };
 
+export
 template <typename T>
 constexpr bool is_const_lvalue_reference_v = is_const_lvalue_reference<T>::value;
 

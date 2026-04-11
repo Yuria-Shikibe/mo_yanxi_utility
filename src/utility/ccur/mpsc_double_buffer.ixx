@@ -180,10 +180,24 @@ public:
         });
     }
 
+    void clear(){
+	    sync_.lock_do_unlock<true>([&](std::uint32_t idx) noexcept{
+		    buffers_[idx].clear();
+	    });
+    }
+
     std::size_t size() const noexcept requires(std::ranges::sized_range<container_type>) {
         return sync_.lock_do_unlock<false>([&](std::uint32_t idx) noexcept(noexcept(std::ranges::size(buffers_[idx]))) {
             return std::ranges::size(buffers_[idx]);
         });
+    }
+
+	void merge(mpsc_double_buffer&& other){
+    	if(auto p  = other.fetch()){
+    		this->modify([&](container_type& c){
+			   c.append_range(std::move(*p) | std::views::as_rvalue);
+			});
+    	}
     }
 
 private:
@@ -287,6 +301,28 @@ public:
         return sync_.template lock_do_unlock<false>([&](std::uint32_t idx) noexcept(noexcept(buffers_[idx].size())) {
             return buffers_[idx].size();
         });
+    }
+	
+    void merge(mpsc_double_buffer_heterogeneous&& other)
+	    requires requires(container_type& c, container_type& other_c){
+		    c.append_range(std::move(other_c) | std::views::as_rvalue);
+	    }{
+	    if(auto p = other.fetch()){
+		    this->modify([&](container_type& c){
+			    c.append_range(std::move(*p) | std::views::as_rvalue);
+		    });
+	    }
+    }
+
+    void merge(mpsc_double_buffer_heterogeneous&& other)
+	    requires requires(container_type& c, container_type& other_c){
+		    c.merge(std::move(other_c));
+	    }{
+	    if(auto p = other.fetch()){
+		    this->modify([&](container_type& c){
+			    c.merge(std::move(*p));
+		    });
+	    }
     }
 
 private:
