@@ -1118,14 +1118,15 @@ MATH_ATTR constexpr T floor(const float value, const T step) noexcept{
 
 export
 template <std::integral T = int>
-MATH_ATTR constexpr T floor(const float value) noexcept{
+MATH_ATTR constexpr T floor_to_integral(const float value) noexcept{
 	return static_cast<T>(value);
 }
 
+export
 template <std::floating_point FloatType>
 constexpr FloatType floor(FloatType x) {
 	if consteval{
-		if (x != x) {
+		if (math::isnan(x)) {
 			return x;
 		}
 
