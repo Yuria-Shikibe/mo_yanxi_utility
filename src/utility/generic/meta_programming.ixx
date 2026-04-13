@@ -373,6 +373,36 @@ public:
 	auto operator<=>(const type_to_index&) const noexcept = default;
 };
 
+export
+template <typename T, typename V>
+	requires std::is_standard_layout_v<T>
+consteval std::size_t offset_of(V T::* mptr){
+	union S{
+		T t{};
+		std::byte b[sizeof(T)];
+
+		constexpr S(){
+		}
+
+		constexpr ~S(){
+			t.~T();
+		}
+	};
+
+	S s{};
+
+
+	const void* p = std::addressof(s.t.*mptr);
+
+	for(std::ptrdiff_t i = 0; i < sizeof(T); ++i){
+		if(s.b + i == p){
+			return i;
+		}
+	}
+
+	throw std::out_of_range{"mptr not found"};
+}
+
 }
 
 
