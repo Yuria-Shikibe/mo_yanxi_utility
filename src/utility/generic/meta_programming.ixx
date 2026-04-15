@@ -40,7 +40,6 @@ template <typename From, typename To>
 struct copy_const : std::type_identity<To>{
 };
 
-export
 template <typename From, typename To>
 struct copy_const<const From, To> : std::type_identity<const To>{
 };
@@ -166,7 +165,6 @@ struct function_traits<Ret T::*> : function_traits<Ret(T::*)()>{
 };
 
 
-export
 template <typename Ty>
 	requires (std::is_class_v<Ty> && std::is_void_v<std::void_t<decltype(&Ty::operator())>>)
 struct function_traits<Ty> : function_traits<std::remove_pointer_t<decltype(&Ty::operator())>>{

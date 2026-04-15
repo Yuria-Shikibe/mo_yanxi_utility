@@ -845,7 +845,6 @@ namespace mo_yanxi::math{
 	};
 
 
-	export
 	template <>
 	struct overlay_axis_keys<rect_box_posed>{
 		static constexpr std::size_t count = 2;
