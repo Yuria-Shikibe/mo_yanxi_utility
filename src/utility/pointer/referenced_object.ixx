@@ -289,25 +289,25 @@ export
  *
  * the copy/move construct is used for insert to map init with protection only!!
  */
-struct referenced_object_atomic{
+struct referenced_object_atomic_lazy{
 
 private:
 	std::atomic_size_t reference_count_{};
 
 public:
-	[[nodiscard]] referenced_object_atomic() = default;
+	[[nodiscard]] referenced_object_atomic_lazy() = default;
 
-	referenced_object_atomic(const referenced_object_atomic& other) noexcept : reference_count_(other.reference_count_.load(std::memory_order::relaxed)){}
+	referenced_object_atomic_lazy(const referenced_object_atomic_lazy& other) noexcept : reference_count_(other.reference_count_.load(std::memory_order::relaxed)){}
 
-	referenced_object_atomic& operator=(const referenced_object_atomic& other) noexcept {
+	referenced_object_atomic_lazy& operator=(const referenced_object_atomic_lazy& other) noexcept {
 		reference_count_.store(other.reference_count_.load(std::memory_order::relaxed), std::memory_order_release);
 		return *this;
 	}
 
-	referenced_object_atomic(referenced_object_atomic&& other) noexcept : reference_count_(other.reference_count_.exchange(0, std::memory_order::acq_rel)) {
+	referenced_object_atomic_lazy(referenced_object_atomic_lazy&& other) noexcept : reference_count_(other.reference_count_.exchange(0, std::memory_order::acq_rel)) {
 	}
 
-	referenced_object_atomic& operator=(referenced_object_atomic&& other) noexcept{
+	referenced_object_atomic_lazy& operator=(referenced_object_atomic_lazy&& other) noexcept{
 		reference_count_.store(other.reference_count_.exchange(0, std::memory_order::acq_rel), std::memory_order_release);
 		return *this;
 	}
@@ -353,6 +353,69 @@ protected:
 		return last == 1;
 	}
 
+
+	template <typename T, typename D>
+	friend struct referenced_ptr;
+};
+
+
+export
+struct referenced_object_atomic {
+private:
+	std::atomic<std::size_t> reference_count_{0};
+
+public:
+	[[nodiscard]] referenced_object_atomic() = default;
+
+	referenced_object_atomic(const referenced_object_atomic& other) noexcept
+		: reference_count_(other.reference_count_.load(std::memory_order_relaxed)) {
+	}
+
+	referenced_object_atomic& operator=(const referenced_object_atomic& other) noexcept {
+		reference_count_.store(other.reference_count_.load(std::memory_order_relaxed), std::memory_order_release);
+		return *this;
+	}
+
+	referenced_object_atomic(referenced_object_atomic&& other) noexcept
+		: reference_count_(other.reference_count_.exchange(0, std::memory_order_acq_rel)) {
+	}
+
+	referenced_object_atomic& operator=(referenced_object_atomic&& other) noexcept {
+		if(this == &other) return *this;
+		reference_count_.store(other.reference_count_.exchange(0, std::memory_order_acq_rel), std::memory_order_release);
+		return *this;
+	}
+
+protected:
+	[[nodiscard]] std::size_t ref_count() const noexcept {
+		return reference_count_.load(std::memory_order_relaxed);
+	}
+
+	[[nodiscard]] bool droppable() const noexcept {
+		return reference_count_.load(std::memory_order_acquire) == 0;
+	}
+
+	/**
+	 * @brief take reference (unconditional)
+	 */
+	void ref_incr() noexcept {
+		reference_count_.fetch_add(1, std::memory_order_relaxed);
+	}
+
+	/**
+	 * @brief drop reference
+	 * @return true if should be destructed
+	 */
+	bool ref_decr() noexcept {
+		std::size_t last = reference_count_.fetch_sub(1, std::memory_order_release);
+		assert(last != 0 && "Reference count underflow!");
+
+		if (last == 1) {
+			std::atomic_thread_fence(std::memory_order_acquire);
+			return true;
+		}
+		return false;
+	}
 
 	template <typename T, typename D>
 	friend struct referenced_ptr;

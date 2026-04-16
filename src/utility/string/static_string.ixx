@@ -30,7 +30,7 @@ namespace mo_yanxi {
         		throw std::bad_alloc{};
         	}
 
-            m_size = src_len;
+            m_size = static_cast<size_type>(src_len);
 
             if consteval {
                 // [编译期] 必须使用循环，因为 memcpy 不是 constexpr
