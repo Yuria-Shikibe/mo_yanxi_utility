@@ -34,6 +34,10 @@ struct cond_exist{
 	constexpr void invoke(this S&& self, Fn&& fn, Args&&... args) noexcept{
 
 	}
+
+	constexpr cond_exist& operator=(auto&&){
+		return *this;
+	}
 };
 
 template <typename T>
@@ -41,6 +45,16 @@ struct cond_exist<T, true>{
 	using value_type = T;
 
 	T val;
+
+	constexpr cond_exist& operator=(value_type&& v) noexcept(std::is_nothrow_move_assignable_v<value_type>) requires(std::is_move_assignable_v<value_type>){
+		val = std::move(v);
+		return *this;
+	}
+
+	constexpr cond_exist& operator=(const value_type& v) noexcept(std::is_nothrow_copy_assignable_v<value_type>) requires(std::is_copy_assignable_v<value_type>){
+		val = v;
+		return *this;
+	}
 
 	template<typename ...Args>
 		requires std::constructible_from<T, Args&&...>
