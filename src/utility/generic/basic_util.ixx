@@ -10,6 +10,63 @@ import std;
 
 namespace mo_yanxi{
 
+template <typename T, typename CompileTimeOp, typename RunTimeOp>
+	requires (std::has_unique_object_representations_v<T> && std::is_trivial_v<T>)
+FORCE_INLINE constexpr auto dispatch_memory_op(const T& lhs, const T& rhs, CompileTimeOp ct_op, RunTimeOp rt_op) noexcept{
+	if consteval{
+		// 编译期：统一将数据结构 bit_cast 为无符号字节数组
+		using ByteArray = std::array<std::uint8_t, sizeof(T)>;
+		return ct_op(std::bit_cast<ByteArray>(lhs), std::bit_cast<ByteArray>(rhs));
+	} else{
+		// 运行期：直接传递指针和大小
+		return rt_op(&lhs, &rhs, sizeof(T));
+	}
+}
+
+export
+struct byte_less {
+    template <typename T>
+    requires (std::has_unique_object_representations_v<T> && std::is_trivial_v<T>)
+    constexpr bool operator()(const T& lhs, const T& rhs) const noexcept {
+        return mo_yanxi::dispatch_memory_op(
+            lhs, rhs,
+            [] FORCE_INLINE (const auto& arr_lhs, const auto& arr_rhs) {
+                for (std::size_t i = 0; i < arr_lhs.size(); ++i) {
+                    if (arr_lhs[i] != arr_rhs[i]) {
+                        return arr_lhs[i] < arr_rhs[i];
+                    }
+                }
+                return false;
+            },
+            [] FORCE_INLINE (const void* p1, const void* p2, std::size_t sz) {
+                return std::memcmp(p1, p2, sz) < 0;
+            }
+        );
+    }
+};
+
+export
+struct byte_equal {
+    template <typename T>
+    requires (std::has_unique_object_representations_v<T> && std::is_trivial_v<T>)
+    constexpr bool operator()(const T& lhs, const T& rhs) const noexcept {
+        return mo_yanxi::dispatch_memory_op(
+            lhs, rhs,
+            [] FORCE_INLINE (const auto& arr_lhs, const auto& arr_rhs) {
+                for (std::size_t i = 0; i < arr_lhs.size(); ++i) {
+                    if (arr_lhs[i] != arr_rhs[i]) {
+                        return false;
+                    }
+                }
+                return true;
+            },
+            [] FORCE_INLINE (const void* p1, const void* p2, std::size_t sz) {
+                return std::memcmp(p1, p2, sz) == 0;
+            }
+        );
+    }
+};
+
 #pragma region Redundant_Construct
 
 template <typename T, typename ...Args>

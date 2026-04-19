@@ -186,6 +186,15 @@ namespace mo_yanxi::math{
 			}
 
 			constexpr friend bool operator==(const vector4& lhs, const vector4& rhs) noexcept = default;
+
+			FORCE_INLINE CONST_FN constexpr friend vector4 fma(vector4 a, vector4 b, vector4 c) noexcept{
+				return {
+					.r = math::cpo::fma(a.r, b.r, c.r),
+					.g = math::cpo::fma(a.g, b.g, c.g),
+					.b = math::cpo::fma(a.b, b.b, c.b),
+					.a = math::cpo::fma(a.a, b.a, c.a)
+				};
+			}
 		};
 
 		export using vec4 = vector4<float>;
