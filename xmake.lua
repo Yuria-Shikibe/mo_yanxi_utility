@@ -74,7 +74,7 @@ elseif has_config("use_libcxx") then
 end
 
 target("mo_yanxi.utility")
-    set_kind("moduleonly")
+    set_kind("object")
     set_languages("c++23")
     set_policy("build.c++.modules", true)
 
