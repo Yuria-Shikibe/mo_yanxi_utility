@@ -83,3 +83,22 @@
 	#define ATTR_FLATTEN
 	#define ATTR_FORCEINLINE_SENTENCE
 #endif
+
+
+
+#if defined(_MSC_VER) && !defined(__clang__)
+
+#if defined(_MSC_VER) && (_MSC_VER < 1950)
+#define ADAPTED_MUST_TAIL
+#endif
+
+#define ADAPTED_MUST_TAIL [[msvc::musttail]]
+
+#elifdef __clang__
+#define ADAPTED_MUST_TAIL [[clang::musttail]]
+#elifdef __GNUC__
+#define ADAPTED_MUST_TAIL [[gnu::musttail]]
+#else
+#define ADAPTED_MUST_TAIL
+#endif
+
