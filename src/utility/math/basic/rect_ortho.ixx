@@ -156,6 +156,10 @@ public:
 		this->set_size(size);
 	}
 
+	constexpr explicit rect_ortho(tags::unchecked_t, const vec_t& size) noexcept : size_(size){
+		assert(size.x >= 0 && size.y >= 0);
+	}
+
 	constexpr rect_ortho(const vec_t& center, T size) noexcept
 		: src(center - vec_t{size / 2, size / 2}), size_(size, size){
 		if constexpr(!std::unsigned_integral<T>){
