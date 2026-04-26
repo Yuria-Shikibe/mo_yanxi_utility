@@ -170,6 +170,12 @@ template <typename Ty>
 struct function_traits<Ty> : function_traits<std::remove_pointer_t<decltype(&Ty::operator())>>{
 };
 
+export
+template <typename T>
+concept unambiguous_function = requires{
+	typename function_traits<T>::return_type;
+};
+
 
 export
 template <typename T>

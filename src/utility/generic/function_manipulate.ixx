@@ -89,7 +89,7 @@ struct call_traits_helper<T, std::tuple<SubArgs...>>{
 
 export
 template <typename... FullArgs, typename Fn>
-constexpr auto make_wrapper(Fn&& fn) noexcept(std::is_nothrow_constructible_v<std::decay_t<Fn>, Fn&&>){
+constexpr auto make_func_wrapper(Fn&& fn) noexcept(std::is_nothrow_constructible_v<std::decay_t<Fn>, Fn&&>){
 	if constexpr(std::invocable<Fn&&, FullArgs...>){
 		return std::forward<Fn>(fn);
 	}
