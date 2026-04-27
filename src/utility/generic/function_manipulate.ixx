@@ -133,4 +133,34 @@ constexpr auto make_func_wrapper(Fn&& fn) noexcept(std::is_nothrow_constructible
 		}
 	}
 }
+
+export
+template <typename... FullArgs, typename Fn>
+constexpr decltype(auto) invoke_redundantly(Fn&& fn, FullArgs&&... args){
+	if constexpr(std::invocable<Fn&&, FullArgs&&...>){
+		return std::invoke(std::forward<Fn>(fn), std::forward<FullArgs>(args)...);
+	}
+
+	using DecayedFn = std::decay_t<Fn>;
+	using SubArgsTuple = typename function_traits<DecayedFn>::mem_func_args_type;
+
+	constexpr static auto indices = get_subset_indices<SubArgsTuple, std::tuple<FullArgs...>>();
+	constexpr static bool is_empty = std::is_empty_v<DecayedFn>;
+	constexpr static bool is_static_op = call_traits_helper<DecayedFn, SubArgsTuple>::is_static_op;
+
+	auto full_tuple = std::forward_as_tuple(std::forward<FullArgs>(args)...);
+
+	if constexpr(is_empty){
+		ATTR_FORCEINLINE_SENTENCE
+		return mo_yanxi::invoke_with_indices(DecayedFn{}, std::move(full_tuple), indices);
+	} else if constexpr(is_static_op){
+		ATTR_FORCEINLINE_SENTENCE
+		return mo_yanxi::invoke_with_indices([]<typename... Ts>(Ts&&... sub_args) -> decltype(auto){
+			return DecayedFn::operator()(std::forward<Ts>(sub_args)...);
+		}, std::move(full_tuple), indices);
+	} else{
+		ATTR_FORCEINLINE_SENTENCE
+		return mo_yanxi::invoke_with_indices(std::forward<Fn>(fn), std::move(full_tuple), indices);
+	}
+}
 }
