@@ -8,6 +8,17 @@ import std;
 export import mo_yanxi.meta_programming;
 
 namespace mo_yanxi{
+
+template <typename T>
+struct consume_udc {
+	operator T() const noexcept;
+};
+
+export
+template <typename F, typename... Args>
+concept strictly_invocable = std::invocable<F, consume_udc<Args>...>;
+
+
 export
 template <typename Fn, typename Base>
 concept func_initializer_of = requires{
@@ -173,6 +184,29 @@ concept redundantly_invocable = unique_decayed_pack<FullArgs...>::value
 	                                               typename function_traits<std::decay_t<Fn>>::mem_func_args_type,
 	                                               std::tuple<FullArgs...>>()));
 
+template <typename Fn, typename FullTuple, std::size_t... Is>
+consteval bool subset_strictly_invocable_with_indices(std::index_sequence<Is...>){
+	return strictly_invocable<Fn, std::tuple_element_t<Is, FullTuple>...>;
+}
+
+template <typename Fn, typename SubArgsTuple, typename FullTuple>
+consteval bool is_strictly_redundantly_invocable_with_tuple(){
+	if constexpr(!has_valid_subset_mapping<SubArgsTuple, FullTuple>()){
+		return false;
+	} else{
+		constexpr auto indices = get_subset_indices<SubArgsTuple, FullTuple>();
+		return mo_yanxi::subset_strictly_invocable_with_indices<Fn, FullTuple>(indices);
+	}
+}
+
+export
+template <typename Fn, typename... FullArgs>
+concept strictly_redundantly_invocable = unique_decayed_pack<FullArgs...>::value
+	&& (strictly_invocable<Fn&&, FullArgs&&...>
+		|| (unambiguous_function<std::decay_t<Fn>>
+			&& is_strictly_redundantly_invocable_with_tuple<Fn&&,
+															typename function_traits<std::decay_t<Fn>>::mem_func_args_type,
+															std::tuple<FullArgs...>>()));
 
 template <typename T, typename Tuple>
 struct call_traits_helper;
