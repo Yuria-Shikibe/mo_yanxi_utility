@@ -21,8 +21,8 @@ export namespace mo_yanxi::math{
 		angle_t rot;
 
 		FORCE_INLINE constexpr void set_zero(){
-			vec.set_zero();
-			rot = 0.0f;
+			vec = {};
+			rot = {};
 		}
 
 		// template <float NaN = std::numeric_limits<angle_t>::signaling_NaN()>
@@ -67,7 +67,13 @@ export namespace mo_yanxi::math{
 			return target;
 		}
 
-		FORCE_INLINE constexpr transform2& operator|=(const transform2& parentRef) noexcept{
+		template <typename Ang>
+		FORCE_INLINE constexpr transform2& operator<<=(const transform2<Ang>& parentRef) noexcept{
+			return transform2::apply_inv(parentRef);
+		}
+
+		template <typename Ang>
+		FORCE_INLINE constexpr transform2& operator>>=(const transform2<Ang>& parentRef) noexcept{
 			return transform2::apply(parentRef);
 		}
 
@@ -123,17 +129,32 @@ export namespace mo_yanxi::math{
 		}
 
 		/**
+		 * @brief Parent To Local
+		 * @param self To Trans
+		 * @param parentRef Parent Frame Reference Trans
+		 * @return Transformed Translation
+		 */
+		template <typename R>
+		[[nodiscard]] FORCE_INLINE constexpr friend transform2 operator<<(transform2 self, const transform2<R>& parentRef) noexcept{
+			return self <<= parentRef;
+		}
+
+		/**
 		 * @brief Local To Parent
 		 * @param self To Trans
 		 * @param parentRef Parent Frame Reference Trans
 		 * @return Transformed Translation
 		 */
 		template <typename R>
-		[[nodiscard]] FORCE_INLINE constexpr friend transform2 operator|(transform2 self, const transform2<R>& parentRef) noexcept{
-			return self |= parentRef;
+		[[nodiscard]] FORCE_INLINE constexpr friend transform2 operator>>(transform2 self, const transform2<R>& parentRef) noexcept{
+			return self >>= parentRef;
 		}
 
-		FORCE_INLINE constexpr friend vec_t& operator|=(vec_t& vec, const transform2 transform) noexcept{
+		FORCE_INLINE constexpr friend vec_t& operator<<=(vec_t& vec, const transform2 transform) noexcept{
+			return vec.sub(transform.vec).rotate_rad(-static_cast<float>(transform.rot));
+		}
+
+		FORCE_INLINE constexpr friend vec_t& operator>>=(vec_t& vec, const transform2 transform) noexcept{
 			return vec.rotate_rad(static_cast<float>(transform.rot)).add(transform.vec);
 		}
 
@@ -158,8 +179,13 @@ export namespace mo_yanxi::math{
 
 
 	template <typename T>
-	[[nodiscard]] FORCE_INLINE constexpr vec2 operator|(vec2 vec, const transform2<T>& transform) noexcept{
-		return vec |= transform;
+	[[nodiscard]] FORCE_INLINE constexpr vec2 operator<<(vec2 vec, const transform2<T>& transform) noexcept{
+		return vec <<= transform;
+	}
+
+	template <typename T>
+	[[nodiscard]] FORCE_INLINE constexpr vec2 operator>>(vec2 vec, const transform2<T>& transform) noexcept{
+		return vec >>= transform;
 	}
 
 	template <typename AngTy>
@@ -167,23 +193,37 @@ export namespace mo_yanxi::math{
 		float z_offset;
 
 		using trans_t = transform2<AngTy>;
-		using transform2<AngTy>::operator|=;
+		using transform2<AngTy>::operator<<=;
+		using transform2<AngTy>::operator>>=;
 
 		[[nodiscard]] FORCE_INLINE constexpr trans_t get_trans() const noexcept{
 			return static_cast<trans_t>(*this);
 		}
 
 		template <typename T>
-		FORCE_INLINE constexpr transform2z& operator|=(const transform2z<T>& parentRef) noexcept{
-			trans_t::operator|=(static_cast<trans_t>(parentRef)); // NOLINT(*-slicing)
+		FORCE_INLINE constexpr transform2z& operator<<=(const transform2z<T>& parentRef) noexcept{
+			trans_t::operator<<=(parentRef.get_trans());
+			z_offset -= parentRef.z_offset;
+
+			return *this;
+		}
+
+		template <typename T>
+		FORCE_INLINE constexpr transform2z& operator>>=(const transform2z<T>& parentRef) noexcept{
+			trans_t::operator>>=(parentRef.get_trans());
 			z_offset += parentRef.z_offset;
 
 			return *this;
 		}
 
 		template <typename T>
-		[[nodiscard]] FORCE_INLINE  constexpr friend transform2z operator|(transform2z self, const transform2z<T> parentRef) noexcept{
-			return self |= parentRef;
+		[[nodiscard]] FORCE_INLINE  constexpr friend transform2z operator<<(transform2z self, const transform2z<T> parentRef) noexcept{
+			return self <<= parentRef;
+		}
+
+		template <typename T>
+		[[nodiscard]] FORCE_INLINE  constexpr friend transform2z operator>>(transform2z self, const transform2z<T> parentRef) noexcept{
+			return self >>= parentRef;
 		}
 
 		template <typename T>
@@ -214,28 +254,53 @@ export namespace mo_yanxi::math{
 		float z_offset;
 
 		template <typename AngTy>
-		FORCE_INLINE constexpr pos_transform2z& operator|=(const transform2z<AngTy>& parentRef) noexcept{
-			vec |= parentRef.get_trans();
+		FORCE_INLINE constexpr pos_transform2z& operator<<=(const transform2z<AngTy>& parentRef) noexcept{
+			vec <<= parentRef.get_trans();
+			z_offset -= parentRef.z_offset;
+
+			return *this;
+		}
+
+		template <typename AngTy>
+		FORCE_INLINE constexpr pos_transform2z& operator>>=(const transform2z<AngTy>& parentRef) noexcept{
+			vec >>= parentRef.get_trans();
 			z_offset += parentRef.z_offset;
 
 			return *this;
 		}
 
 		template <typename AngTy>
-		[[nodiscard]] FORCE_INLINE constexpr friend pos_transform2z operator|(pos_transform2z self, const transform2z<AngTy>& parentRef) noexcept{
-			return self |= parentRef;
+		[[nodiscard]] FORCE_INLINE constexpr friend pos_transform2z operator<<(pos_transform2z self, const transform2z<AngTy>& parentRef) noexcept{
+			return self <<= parentRef;
 		}
 
 		template <typename AngTy>
-		FORCE_INLINE constexpr pos_transform2z& operator|=(const transform2<AngTy>& rhs) noexcept{
-			vec |= rhs;
+		[[nodiscard]] FORCE_INLINE constexpr friend pos_transform2z operator>>(pos_transform2z self, const transform2z<AngTy>& parentRef) noexcept{
+			return self >>= parentRef;
+		}
+
+		template <typename AngTy>
+		FORCE_INLINE constexpr pos_transform2z& operator<<=(const transform2<AngTy>& rhs) noexcept{
+			vec <<= rhs;
 
 			return *this;
 		}
 
 		template <typename AngTy>
-		[[nodiscard]] FORCE_INLINE constexpr friend pos_transform2z operator|(pos_transform2z self, const transform2<AngTy>& parentRef) noexcept{
-			return self |= parentRef;
+		FORCE_INLINE constexpr pos_transform2z& operator>>=(const transform2<AngTy>& rhs) noexcept{
+			vec >>= rhs;
+
+			return *this;
+		}
+
+		template <typename AngTy>
+		[[nodiscard]] FORCE_INLINE constexpr friend pos_transform2z operator<<(pos_transform2z self, const transform2<AngTy>& parentRef) noexcept{
+			return self <<= parentRef;
+		}
+
+		template <typename AngTy>
+		[[nodiscard]] FORCE_INLINE constexpr friend pos_transform2z operator>>(pos_transform2z self, const transform2<AngTy>& parentRef) noexcept{
+			return self >>= parentRef;
 		}
 
 		FORCE_INLINE constexpr pos_transform2z& operator+=(const pos_transform2z lhs) noexcept{
