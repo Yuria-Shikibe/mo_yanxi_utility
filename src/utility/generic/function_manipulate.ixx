@@ -58,21 +58,35 @@ concept passable = requires(Arg&& arg){
 	passable_probe<Param>{std::forward<Arg>(arg)};
 };
 
-template <typename... Ts>
-struct unique_decayed_pack : std::true_type{
-};
+template <typename>
+static consteval void pin(){
 
-template <typename T, typename... Rest>
-struct unique_decayed_pack<T, Rest...>
-	: std::bool_constant<(!std::same_as<std::remove_cvref_t<T>, std::remove_cvref_t<Rest>> && ...)
-	                     && unique_decayed_pack<Rest...>::value>{
+}
+
+template <typename ...Ts>
+consteval bool check_unique(){
+	std::vector<void(*)()> tags{};
+
+	auto checked_insert = [&](void(* v)()){
+		if(std::ranges::contains(tags, v)){
+			return true;
+		}
+		tags.push_back(v);
+		return false;
+	};
+
+	return !((checked_insert(&pin<Ts>)) || ...);
+}
+
+template <typename... Ts>
+struct is_unique_remove_cvref_pack : std::bool_constant<check_unique<std::remove_cvref_t<Ts> ...>()>{
 };
 
 template <typename Tuple>
-struct unique_decayed_tuple;
+struct is_unique_remove_cvref_tuple;
 
 template <typename... Ts>
-struct unique_decayed_tuple<std::tuple<Ts...>> : unique_decayed_pack<Ts...>{
+struct is_unique_remove_cvref_tuple<std::tuple<Ts...>> : is_unique_remove_cvref_pack<Ts...>{
 };
 
 template <typename SubArgsTuple, typename FullTuple>
@@ -115,7 +129,7 @@ consteval std::size_t first_passable_index(){
 
 template <typename SubArgsTuple, typename FullTuple>
 consteval bool has_valid_subset_mapping(){
-	if constexpr(!unique_decayed_tuple<FullTuple>::value){
+	if constexpr(!is_unique_remove_cvref_tuple<FullTuple>::value){
 		return false;
 	} else{
 		static constexpr std::size_t N = std::tuple_size_v<SubArgsTuple>;
@@ -156,7 +170,7 @@ consteval std::size_t find_decayed_index(){
 
 template <typename SubArgsTuple, typename FullTuple>
 consteval auto get_subset_indices(){
-	static_assert(unique_decayed_tuple<FullTuple>::value,
+	static_assert(is_unique_remove_cvref_tuple<FullTuple>::value,
 	              "Redundant call requires FullArgs to have distinct decayed types");
 	static constexpr std::size_t N = std::tuple_size_v<SubArgsTuple>;
 	constexpr auto indices = []<std::size_t... Is>(std::index_sequence<Is...>){
@@ -177,7 +191,7 @@ constexpr decltype(auto) invoke_with_indices(Fn&& f, FullTuple&& full_args, std:
 
 export
 template <typename Fn, typename... FullArgs>
-concept redundantly_invocable = unique_decayed_pack<FullArgs...>::value
+concept redundantly_invocable = is_unique_remove_cvref_pack<FullArgs...>::value
 	&& (std::invocable<Fn&&, FullArgs&&...>
 	    || (unambiguous_function<std::decay_t<Fn>>
 	        && is_redundantly_invocable_with_tuple<Fn&&,
@@ -201,7 +215,7 @@ consteval bool is_strictly_redundantly_invocable_with_tuple(){
 
 export
 template <typename Fn, typename... FullArgs>
-concept strictly_redundantly_invocable = unique_decayed_pack<FullArgs...>::value
+concept strictly_redundantly_invocable = is_unique_remove_cvref_pack<FullArgs...>::value
 	&& (strictly_invocable<Fn&&, FullArgs&&...>
 		|| (unambiguous_function<std::decay_t<Fn>>
 			&& is_strictly_redundantly_invocable_with_tuple<Fn&&,
@@ -225,7 +239,7 @@ struct call_traits_helper<T, std::tuple<SubArgs...>>{
 export
 template <typename... FullArgs, typename Fn>
 constexpr auto make_func_wrapper(Fn&& fn) noexcept(std::is_nothrow_constructible_v<std::decay_t<Fn>, Fn&&>){
-	static_assert(unique_decayed_pack<FullArgs...>::value,
+	static_assert(is_unique_remove_cvref_pack<FullArgs...>::value,
 	              "make_func_wrapper requires FullArgs to have distinct decayed types");
 
 	if constexpr(std::invocable<Fn&&, FullArgs...>){
@@ -275,7 +289,7 @@ constexpr auto make_func_wrapper(Fn&& fn) noexcept(std::is_nothrow_constructible
 export
 template <typename... FullArgs, typename Fn>
 constexpr decltype(auto) invoke_redundantly(Fn&& fn, FullArgs&&... args){
-	static_assert(unique_decayed_pack<FullArgs...>::value,
+	static_assert(is_unique_remove_cvref_pack<FullArgs...>::value,
 	              "invoke_redundantly requires FullArgs to have distinct decayed types");
 	static_assert(redundantly_invocable<Fn, FullArgs...>,
 	              "invoke_redundantly requires a function invocable directly or by redundant argument matching");

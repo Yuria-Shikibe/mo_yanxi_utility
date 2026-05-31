@@ -407,7 +407,6 @@ public:
 		return fn(f);
 	}
 
-
 	constexpr operator no_state_interp_func() const noexcept requires (static_interp<Fn>){
 		return +[](float f) static constexpr noexcept{
 			return Fn::operator()(f);
@@ -424,16 +423,46 @@ constexpr auto operator|(const interp_func<LFn>& f1, const interp_func<RFn>& f2)
 					return LFn::operator()(RFn::operator()(f));
 				}
 			};
+	} else if constexpr(static_interp<LFn> && std::is_empty_v<RFn>){
+		return interp_func{
+				[](float f) static constexpr noexcept{
+					return LFn::operator()(RFn{}(f)); // 构造空类对象调用
+				}
+			};
 	} else if constexpr(static_interp<LFn>){
 		return interp_func{
 				[f2](float f) constexpr noexcept{
 					return LFn::operator()(f2(f));
 				}
 			};
+	} else if constexpr(std::is_empty_v<LFn> && static_interp<RFn>){
+		return interp_func{
+				[](float f) static constexpr noexcept{
+					return LFn{}(RFn::operator()(f));
+				}
+			};
 	} else if constexpr(static_interp<RFn>){
 		return interp_func{
 				[f1](float f) constexpr noexcept{
 					return f1(RFn::operator()(f));
+				}
+			};
+	} else if constexpr(std::is_empty_v<LFn> && std::is_empty_v<RFn>){
+		return interp_func{
+				[](float f) static constexpr noexcept{
+					return LFn{}(RFn{}(f));
+				}
+			};
+	} else if constexpr(std::is_empty_v<LFn>){
+		return interp_func{
+				[f2](float f) constexpr noexcept{
+					return LFn{}(f2(f));
+				}
+			};
+	} else if constexpr(std::is_empty_v<RFn>){
+		return interp_func{
+				[f1](float f) constexpr noexcept{
+					return f1(RFn{}(f));
 				}
 			};
 	} else{
@@ -444,7 +473,6 @@ constexpr auto operator|(const interp_func<LFn>& f1, const interp_func<RFn>& f2)
 			};
 	}
 }
-
 
 export{
 	template <float margin_in, float margin_out = 1.f>
