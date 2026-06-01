@@ -5,7 +5,6 @@ module;
 export module ext.object_pool_group;
 
 export import mo_yanxi.object_pool;
-export import mo_yanxi.open_addr_hash_map;
 import std;
 
 namespace mo_yanxi{
@@ -127,11 +126,11 @@ namespace mo_yanxi{
 		};
 
 	private:
-		fixed_open_hash_map<
+		std::unordered_map<
 			std::type_index,
 			pool_wrapper,
-			nullptr,
-			type_index_hasher, type_index_equal_to__not_null, Proj>
+			type_index_hasher,
+			type_index_equal_to__not_null>
 		pools{};
 
 	public:

@@ -9,7 +9,6 @@ export import mo_yanxi.utility;
 export import ext.dim2.plane_concept;
 export import mo_yanxi.math.vector2;
 export import mo_yanxi.dim2.tile;
-export import mo_yanxi.open_addr_hash_map;
 import std;
 
 namespace mo_yanxi::dim2{
@@ -199,7 +198,6 @@ namespace mo_yanxi::dim2{
 		using local_coord_type = vec<size_type>;
 		using global_coord_type = vec<global_size_type>;
 
-		// fixed_open_addr_hash_map<global_coord_type, value_type, global_coord_type, math::vectors::constant2<global_size_type>::lowest_vec2> chunks{};
 		std::unordered_map<global_coord_type, value_type> chunks{};
 
 		template <position_acquireable<global_size_type> Coord = global_coord_type>

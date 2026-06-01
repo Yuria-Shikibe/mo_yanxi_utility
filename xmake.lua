@@ -91,6 +91,7 @@ target("mo_yanxi.utility")
     add_installfiles("include/(**.hpp)", {prefixdir = "include"})
 
     add_files("./src/utility/**.ixx", {public = true})
+    remove_files("./src/utility/container/open_hash_map.ixx")
 
     if has_config("add_legacy") then
         add_files("./src/legacy/**.ixx", {public = true})
