@@ -181,9 +181,10 @@ public:
     }
 
     void clear(){
-	    sync_.lock_do_unlock<true>([&](std::uint32_t idx) noexcept{
-		    buffers_[idx].clear();
-	    });
+	    (void)sync_.lock();
+	    buffers_[0].clear();
+	    buffers_[1].clear();
+	    sync_.flip_and_unlock();
     }
 
     std::size_t size() const noexcept requires(std::ranges::sized_range<container_type>) {
