@@ -108,7 +108,8 @@ struct impl{
 	   requires (!has_adl_fma<T1, T2, T3> && !is_floating_point_fma<T1, T2, T3>)
 	[[nodiscard]] CONST_FN FORCE_INLINE static constexpr auto operator()(
 	   const T1& a, const T2& b, const T3& c) noexcept{
-		return a * b + c;
+		using product_type = decltype(a * b);
+		return static_cast<product_type>(a * b) + static_cast<product_type>(c);
 	}
 };
 
@@ -193,7 +194,7 @@ export constexpr inline float pi_2 = pi_2_v<float>;
 
 export constexpr inline float e = std::numbers::e_v<float>;
 export constexpr inline float sqrt2 = std::numbers::sqrt2_v<float>;
-export constexpr inline float sqrt2_inv = 1. / std::numbers::sqrt2_v<double>;
+export constexpr inline float sqrt2_inv = 1.f / std::numbers::sqrt2_v<float>;
 export constexpr inline float sqrt3 = std::numbers::sqrt3_v<float>;
 
 export constexpr inline float circle_deg_full = 360.0f;
@@ -1100,7 +1101,7 @@ export
 template <std::integral T, typename T0>
 MATH_ATTR constexpr T round(const T0 value) noexcept{
 	if constexpr(std::floating_point<T0>){
-		return std::lround(value);
+		return static_cast<T>(std::lround(value));
 	} else{
 		return static_cast<T>(value);
 	}
