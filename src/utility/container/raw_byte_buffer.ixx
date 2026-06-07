@@ -33,6 +33,9 @@ export struct preserve_relocation_t{
 	template <typename T, std::integral SizeTy>
 		requires std::is_trivially_copyable_v<T>
 	FORCE_INLINE static void operator()(const T* old_data, T* new_data, SizeTy count) noexcept{
+		assert(old_data != nullptr);
+		assert(new_data != nullptr);
+		
 		std::memcpy(
 			static_cast<void*>(new_data),
 			static_cast<const void*>(old_data),
