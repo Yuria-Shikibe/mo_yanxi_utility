@@ -111,7 +111,7 @@ public:
 
 	[[nodiscard]] raw_buffer(const raw_buffer& other) requires std::is_trivially_copyable_v<value_type>
 		: allocator_(allocator_traits::select_on_container_copy_construction(other.allocator_)){
-		copy_allocate_(other.data(), other.size_);
+		this->copy_allocate_(other.data(), other.size_);
 	}
 
 	raw_buffer(const raw_buffer&) requires(!std::is_trivially_copyable_v<value_type>) = delete;
