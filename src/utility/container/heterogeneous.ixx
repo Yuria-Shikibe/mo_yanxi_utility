@@ -8,41 +8,52 @@ import std;
 import mo_yanxi.meta_programming;
 
 export namespace mo_yanxi::transparent{
-struct string_equal_to{
+template <typename CharT>
+struct basic_string_equal_to{
 	using is_transparent = void;
 
 	// 通用比较：只要两个操作数都能转换为 string_view
 	template <typename T, typename U>
-		requires std::convertible_to<T, std::string_view> && std::convertible_to<U, std::string_view>
+		requires std::convertible_to<T, std::basic_string_view<CharT>> &&
+			std::convertible_to<U, std::basic_string_view<CharT>>
 	FORCE_INLINE static constexpr bool operator()(const T& lhs, const U& rhs) noexcept{
-		return std::string_view(lhs) == std::string_view(rhs);
+		return std::basic_string_view<CharT>(lhs) == std::basic_string_view<CharT>(rhs);
 	}
 };
 
+using string_equal_to = basic_string_equal_to<char>;
 
-template <template <typename> typename Comp>
-	requires std::regular_invocable<Comp<std::string_view>, std::string_view, std::string_view>
+
+template <template <typename> typename Comp, typename CharT = char>
+	requires std::regular_invocable<
+		Comp<std::basic_string_view<CharT>>,
+		std::basic_string_view<CharT>,
+		std::basic_string_view<CharT>>
 struct string_comparator_of{
-	static constexpr Comp<std::string_view> comp{};
+	static constexpr Comp<std::basic_string_view<CharT>> comp{};
 	using is_transparent = void;
 
 	template <typename T, typename U>
-		requires std::convertible_to<T, std::string_view> && std::convertible_to<U, std::string_view>
+		requires std::convertible_to<T, std::basic_string_view<CharT>> &&
+			std::convertible_to<U, std::basic_string_view<CharT>>
 	FORCE_INLINE static auto operator()(const T& a, const U& b) noexcept{
-		return comp(std::string_view(a), std::string_view(b));
+		return comp(std::basic_string_view<CharT>(a), std::basic_string_view<CharT>(b));
 	}
 };
 
-struct string_hasher{
+template <typename CharT>
+struct basic_string_hasher{
 	using is_transparent = void;
-	static constexpr std::hash<std::string_view> hasher{};
+	static constexpr std::hash<std::basic_string_view<CharT>> hasher{};
 
 	template <typename T>
-		requires std::convertible_to<T, std::string_view>
+		requires std::convertible_to<T, std::basic_string_view<CharT>>
 	FORCE_INLINE static std::size_t operator()(const T& val) noexcept{
-		return hasher(std::string_view(val));
+		return hasher(std::basic_string_view<CharT>(val));
 	}
 };
+
+using string_hasher = basic_string_hasher<char>;
 
 template <typename T>
 struct ptr_equal_to{
@@ -88,6 +99,22 @@ struct ptr_hasher{
 }
 
 namespace mo_yanxi{
+namespace detail{
+template <typename Key>
+struct basic_string_key_traits{
+	using char_type = typename Key::value_type;
+};
+
+template <typename Key>
+	requires (!requires { typename Key::value_type; } && std::convertible_to<Key, std::string_view>)
+struct basic_string_key_traits<Key>{
+	using char_type = char;
+};
+
+template <typename Key>
+using basic_string_key_char_t = typename basic_string_key_traits<Key>::char_type;
+}
+
 template <typename T, auto T::* ptr>
 	requires(mo_yanxi::default_hashable<typename mptr_info<decltype(ptr)>::value_type>)
 struct projection_hash{
@@ -140,16 +167,26 @@ public:
 export
 template <typename Key, typename V, typename Alloc = std::allocator<std::pair<const Key, V>>>
 class basic_string_hash_map : public
-std::unordered_map<Key, V, transparent::string_hasher, transparent::string_equal_to, Alloc>{
+std::unordered_map<
+	Key,
+	V,
+	transparent::basic_string_hasher<detail::basic_string_key_char_t<Key>>,
+	transparent::basic_string_equal_to<detail::basic_string_key_char_t<Key>>,
+	Alloc>{
 private:
-	using self_type = std::unordered_map<Key, V, transparent::string_hasher, transparent::string_equal_to, Alloc>;
-
+	using char_type = detail::basic_string_key_char_t<Key>;
+	using self_type = std::unordered_map<
+		Key,
+		V,
+		transparent::basic_string_hasher<char_type>,
+		transparent::basic_string_equal_to<char_type>,
+		Alloc>;
 public:
-	using std::unordered_map<Key, V, transparent::string_hasher, transparent::string_equal_to, Alloc>::unordered_map;
+	using self_type::unordered_map;
 
 	// 通用的 at
 	template <typename S, typename K>
-		requires std::convertible_to<K, std::string_view>
+		requires std::convertible_to<K, std::basic_string_view<char_type>>
 	auto&& at(this S&& self, const K& key){
 		if(auto itr = self.find(key); itr != self.end()){
 			return std::forward_like<S>(itr->second);
@@ -160,7 +197,7 @@ public:
 
 	// 通用的 try_find
 	template <typename K>
-		requires std::convertible_to<K, std::string_view>
+		requires std::convertible_to<K, std::basic_string_view<char_type>>
 	V* try_find(const K& key){
 		if(const auto itr = this->find(key); itr != this->end()){
 			return &itr->second;
@@ -169,7 +206,7 @@ public:
 	}
 
 	template <typename K>
-		requires std::convertible_to<K, std::string_view>
+		requires std::convertible_to<K, std::basic_string_view<char_type>>
 	const V* try_find(const K& key) const{
 		if(const auto itr = this->find(key); itr != this->end()){
 			return &itr->second;
@@ -183,10 +220,10 @@ public:
 	// 通用的 try_emplace
 	// 如果 K 支持转为 string_view (用于查找) 且 Key 支持从 K 构造 (用于插入)
 	template <typename K, class... Arg>
-		requires (std::convertible_to<K, std::string_view> && std::constructible_from<Key, K&&>)
+		requires (std::convertible_to<K, std::basic_string_view<char_type>> && std::constructible_from<Key, K&&>)
 	std::pair<typename self_type::iterator, bool> try_emplace(K&& key, Arg&&... val){
 		// 先尝试异构查找
-		std::string_view sv = key;
+		std::basic_string_view<char_type> sv = key;
 		if(auto itr = this->find(sv); itr != this->end()){
 			return {itr, false};
 		} else{
@@ -197,7 +234,7 @@ public:
 
 	// 通用的 insert_or_assign
 	template <typename K, class... Arg>
-		requires (std::convertible_to<K, std::string_view> && std::constructible_from<Key, K&&>)
+		requires (std::convertible_to<K, std::basic_string_view<char_type>> && std::constructible_from<Key, K&&>)
 	std::pair<typename self_type::iterator, bool> insert_or_assign(K&& key, Arg&&... val){
 		// insert_or_assign 标准行为通常不直接支持异构 key 用于 slot 查找优化，
 		// 除非 C++20/23 扩展，这里我们手动转发为 Key 类型以确保安全
@@ -208,9 +245,9 @@ public:
 
 	// 通用的 operator[]
 	template <typename K>
-		requires (std::convertible_to<K, std::string_view> && std::constructible_from<Key, K&&>)
+		requires (std::convertible_to<K, std::basic_string_view<char_type>> && std::constructible_from<Key, K&&>)
 	V& operator[](K&& key){
-		std::string_view sv = key;
+		std::basic_string_view<char_type> sv = key;
 		if(auto itr = this->find(sv); itr != this->end()){
 			return itr->second;
 		}
